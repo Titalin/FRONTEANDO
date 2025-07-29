@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
   Box, Typography, Paper, TextField, Button, Grid, Alert,
-  Table, TableContainer, TableHead, TableRow, TableCell, TableBody
+  Table, TableContainer, TableHead, TableRow, TableCell, TableBody,
+  Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import Sidebar from '../../components/Layout/Sidebar';
 import Topbar from '../../components/Layout/Topbar';
@@ -15,6 +16,10 @@ const RegistroEmpleado = () => {
   const [error, setError] = useState(null);
   const [token, setToken] = useState('');
   const [empresaId, setEmpresaId] = useState(null);
+
+  // Modal
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMessage, setDialogMessage] = useState('');
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
@@ -106,6 +111,18 @@ const RegistroEmpleado = () => {
     if (!window.confirm('¿Seguro que deseas eliminar este empleado?')) return;
 
     try {
+      const lockerRes = await fetch(`/api/lockers`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const lockers = await lockerRes.json();
+      const asignados = lockers.filter(l => l.usuario_id === id);
+
+      if (asignados.length > 0) {
+        setDialogMessage('No puedes eliminar este empleado porque tiene lockers asignados.');
+        setDialogOpen(true);
+        return;
+      }
+
       const res = await fetch(`/api/usuarios/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
@@ -197,7 +214,7 @@ const RegistroEmpleado = () => {
                 <TableRow sx={{ backgroundColor: 'primary.main' }}>
                   <TableCell sx={{ color: '#fff' }}>Nombre</TableCell>
                   <TableCell sx={{ color: '#fff' }}>Correo</TableCell>
-                  <TableCell sx={{ color: '#fff' }}>Teléfono</TableCell>
+                  <TableCell sx={{ color: '#fff' }}>Empresa</TableCell>
                   <TableCell sx={{ color: '#fff' }}>Acciones</TableCell>
                 </TableRow>
               </TableHead>
@@ -231,6 +248,19 @@ const RegistroEmpleado = () => {
             </Table>
           </TableContainer>
         </Paper>
+
+        {/* Modal para advertencia */}
+        <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
+          <DialogTitle>Acción no permitida</DialogTitle>
+          <DialogContent>
+            <Typography>{dialogMessage}</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDialogOpen(false)} color="primary">
+              Cerrar
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </Box>
   );

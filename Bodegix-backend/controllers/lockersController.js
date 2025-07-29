@@ -93,3 +93,18 @@ exports.getLockerById = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+exports.getLockersPorEmpresa = async (req, res) => {
+    try {
+        const { empresa_id } = req.params;
+
+        const lockers = await Locker.findAll({
+            where: { empresa_id },
+            include: ['empresa']
+        });
+
+        res.json(lockers);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
