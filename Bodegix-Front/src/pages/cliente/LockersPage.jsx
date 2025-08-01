@@ -253,7 +253,7 @@ const LockersPage = () => {
               </Grid>
             );
           })}
-        </Grid>
+        </Grid> 
       </Box>
     </Box>
   );
