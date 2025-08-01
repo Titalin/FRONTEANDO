@@ -1,3 +1,5 @@
-"node_modules/" 
-".cache/" 
-"node_modules/" 
+# Ignora cualquier carpeta node_modules en cualquier nivel
+**/node_modules/
+
+# Ignora carpetas .cache en cualquier nivel
+**/.cache/
