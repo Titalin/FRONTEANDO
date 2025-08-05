@@ -1,5 +1,3 @@
-// src/pages/cliente/LockersPage.jsx
-
 import React, { useEffect, useState } from 'react';
 import {
   Box, Grid, Paper, Typography, Button, Chip, Avatar,
@@ -21,12 +19,6 @@ const LockersPage = () => {
   const [token, setToken] = useState('');
   const [empresaId, setEmpresaId] = useState(null);
   const [editValues, setEditValues] = useState({});
-  const [newLocker, setNewLocker] = useState({
-    identificador: '',
-    ubicacion: '',
-    tipo: '',
-    estado: ''
-  });
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
@@ -42,7 +34,8 @@ const LockersPage = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      setLockers(data);
+      const filtered = data.filter(locker => locker.empresa_id === empresaId);
+      setLockers(filtered);
     } catch (error) {
       console.error('Error al obtener lockers:', error);
     }
@@ -54,7 +47,8 @@ const LockersPage = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      setEmpleados(data);
+      const filtered = data.filter(emp => emp.empresa_id === empresaId);
+      setEmpleados(filtered);
     } catch (error) {
       console.error('Error al obtener empleados:', error);
     }
@@ -65,7 +59,6 @@ const LockersPage = () => {
       fetchLockers();
       fetchEmpleados();
     }
-    // eslint-disable-next-line
   }, [empresaId, token]);
 
   const handleUpdateLocker = async (lockerId, values) => {
@@ -117,40 +110,6 @@ const LockersPage = () => {
     }));
   };
 
-  const handleNewLockerChange = (field, value) => {
-    setNewLocker((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handleCreateLocker = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await fetch(`${API_URL}/api/lockers`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(newLocker),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || 'Error al crear locker');
-      }
-      setNewLocker({
-        identificador: '',
-        ubicacion: '',
-        tipo: 'frios',
-        estado: 'activo'
-      });
-      fetchLockers();
-    } catch (error) {
-      console.error('Error al crear locker:', error.message);
-    }
-  };
-
   return (
     <Box display="flex">
       <Sidebar />
@@ -159,55 +118,8 @@ const LockersPage = () => {
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6">Lockers por Empresa</Typography>
           <Typography variant="body2" color="text.secondary">
-            Edita, asigna, administra, elimina y crea nuevos lockers.
+            Edita, asigna, administra y elimina lockers.
           </Typography>
-        </Paper>
-
-        {/* Formulario para crear un nuevo locker */}
-        <Paper sx={{ p: 2, mb: 4 }}>
-          <Typography variant="subtitle1" sx={{ mb: 2 }}>Agregar nuevo locker</Typography>
-          <form onSubmit={handleCreateLocker}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                label="Identificador"
-                value={newLocker.identificador}
-                onChange={(e) => handleNewLockerChange('identificador', e.target.value)}
-                required
-              />
-              <TextField
-                label="Ubicación"
-                value={newLocker.ubicacion}
-                onChange={(e) => handleNewLockerChange('ubicacion', e.target.value)}
-                required
-              />
-              <FormControl>
-                <InputLabel>Tipo</InputLabel>
-                <Select
-                  value={newLocker.tipo}
-                  label="Tipo"
-                  onChange={(e) => handleNewLockerChange('tipo', e.target.value)}
-                >
-                  <MenuItem value="frios">Fríos</MenuItem>
-                  <MenuItem value="perecederos">Perecederos</MenuItem>
-                  <MenuItem value="no_perecederos">No Perecederos</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl>
-                <InputLabel>Estado</InputLabel>
-                <Select
-                  value={newLocker.estado}
-                  label="Estado"
-                  onChange={(e) => handleNewLockerChange('estado', e.target.value)}
-                >
-                  <MenuItem value="activo">Activo</MenuItem>
-                  <MenuItem value="inactivo">Inactivo</MenuItem>
-                </Select>
-              </FormControl>
-              <Button type="submit" variant="contained" color="primary">
-                Agregar
-              </Button>
-            </Stack>
-          </form>
         </Paper>
 
         <Grid container spacing={3}>
@@ -233,8 +145,8 @@ const LockersPage = () => {
                         size="small"
                         label="Identificador"
                         fullWidth
-                        value={edit.identificador ?? locker.identificador}
-                        onChange={(e) => handleChange(locker.id, 'identificador', e.target.value)}
+                        value={locker.identificador}
+                        InputProps={{ readOnly: true }}
                       />
                     </Stack>
                     <TextField
@@ -256,93 +168,54 @@ const LockersPage = () => {
                         <MenuItem value="no_perecederos">No Perecederos</MenuItem>
                       </Select>
                     </FormControl>
-
                     <FormControl size="small" fullWidth>
                       <InputLabel>Empleado</InputLabel>
                       <Select
                         value={edit.usuario_id !== undefined ? edit.usuario_id : locker.usuario_id ?? ''}
                         label="Empleado"
                         onChange={(e) =>
-                          handleChange(
-                            locker.id,
-                            'usuario_id',
-                            e.target.value === '' ? null : e.target.value
-                          )
+                          handleChange(locker.id, 'usuario_id', e.target.value === '' ? null : e.target.value)
                         }
                       >
                         <MenuItem value="">
                           <em>Sin asignar</em>
                         </MenuItem>
-                        {empleados
-                          .filter((emp) => emp.rol_id === 3 && emp.empresa_id === empresaId)
-                          .map((emp) => (
-                            <MenuItem key={emp.id} value={emp.id}>
-                              {emp.nombre}
-                            </MenuItem>
-                          ))}
+                        {empleados.map((emp) => (
+                          <MenuItem key={emp.id} value={emp.id}>
+                            {emp.nombre}
+                          </MenuItem>
+                        ))}
                       </Select>
                     </FormControl>
 
-                    {locker.usuario?.nombre && (
-                      <Chip
-                        avatar={
-                          <Avatar>
-                            <PersonIcon />
-                          </Avatar>
-                        }
-                        label={`Asignado: ${locker.usuario.nombre}`}
-                        color="secondary"
-                        sx={{ mt: 1 }}
-                      />
-                    )}
+                    <TextField size="small" label="Temp. Mínima (°C)" type="number" fullWidth value={edit.temp_min ?? locker.temp_min ?? ''} onChange={(e) => handleChange(locker.id, 'temp_min', parseFloat(e.target.value))} />
+                    <TextField size="small" label="Temp. Máxima (°C)" type="number" fullWidth value={edit.temp_max ?? locker.temp_max ?? ''} onChange={(e) => handleChange(locker.id, 'temp_max', parseFloat(e.target.value))} />
+                    <TextField size="small" label="Humedad Mínima (%)" type="number" fullWidth value={edit.hum_min ?? locker.hum_min ?? ''} onChange={(e) => handleChange(locker.id, 'hum_min', parseFloat(e.target.value))} />
+                    <TextField size="small" label="Humedad Máxima (%)" type="number" fullWidth value={edit.hum_max ?? locker.hum_max ?? ''} onChange={(e) => handleChange(locker.id, 'hum_max', parseFloat(e.target.value))} />
+                    <TextField size="small" label="Peso Máximo (kg)" type="number" fullWidth value={edit.peso_max ?? locker.peso_max ?? ''} onChange={(e) => handleChange(locker.id, 'peso_max', parseFloat(e.target.value))} />
 
                     <Stack direction="row" spacing={1}>
-                      <Button
-                        startIcon={<EstadoIcon />}
-                        variant="contained"
-                        color={isActivo ? 'error' : 'success'}
-                        onClick={() =>
-                          handleUpdateLocker(locker.id, {
-                            estado: isActivo ? 'inactivo' : 'activo',
-                            usuario_id: isActivo ? null : locker.usuario_id,
-                          })
-                        }
-                      >
+                      <Button startIcon={<EstadoIcon />} variant="contained" color={isActivo ? 'error' : 'success'} onClick={() => handleUpdateLocker(locker.id, { estado: isActivo ? 'inactivo' : 'activo', usuario_id: isActivo ? null : locker.usuario_id })}>
                         {isActivo ? 'Desactivar' : 'Activar'}
                       </Button>
-
-                      <Button
-                        startIcon={<EditIcon />}
-                        variant="outlined"
-                        onClick={() => {
-                          const updatedUsuarioId =
-                            edit.usuario_id !== undefined
-                              ? edit.usuario_id
-                              : locker.usuario_id ?? null;
-                          const valuesToUpdate = {
-                            identificador: edit.identificador ?? locker.identificador,
-                            ubicacion: edit.ubicacion ?? locker.ubicacion,
-                            tipo: edit.tipo ?? locker.tipo,
-                            usuario_id: updatedUsuarioId,
-                          };
-
-                          // Si no hay usuario asignado, también desactiva el locker
-                          if (updatedUsuarioId === null) {
-                            valuesToUpdate.estado = 'inactivo';
-                          }
-
-                          handleUpdateLocker(locker.id, valuesToUpdate);
-                        }}
-                      >
+                      <Button startIcon={<EditIcon />} variant="outlined" onClick={() => {
+                        const updatedUsuarioId = edit.usuario_id !== undefined ? edit.usuario_id : locker.usuario_id ?? null;
+                        const valuesToUpdate = {
+                          ubicacion: edit.ubicacion ?? locker.ubicacion,
+                          tipo: edit.tipo ?? locker.tipo,
+                          usuario_id: updatedUsuarioId,
+                          temp_min: edit.temp_min ?? locker.temp_min,
+                          temp_max: edit.temp_max ?? locker.temp_max,
+                          hum_min: edit.hum_min ?? locker.hum_min,
+                          hum_max: edit.hum_max ?? locker.hum_max,
+                          peso_max: edit.peso_max ?? locker.peso_max,
+                        };
+                        if (updatedUsuarioId === null) valuesToUpdate.estado = 'inactivo';
+                        handleUpdateLocker(locker.id, valuesToUpdate);
+                      }}>
                         Guardar cambios
                       </Button>
-
-                      <Button
-                        startIcon={<DeleteIcon />}
-                        variant="outlined"
-                        color="error"
-                        onClick={() => handleDeleteLocker(locker.id)}
-                      >
+                      <Button startIcon={<DeleteIcon />} variant="outlined" color="error" onClick={() => handleDeleteLocker(locker.id)}>
                         Eliminar
                       </Button>
                     </Stack>

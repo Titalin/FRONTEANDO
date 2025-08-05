@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box } from '@mui/material';
-import logo from '../../assets/logo.PNG'; // Asegúrate de mover la imagen aquí
+import logo from '../../assets/logo4.PNG'; // Asegúrate de mover la imagen aquí
 
 const Logo = () => {
   return (

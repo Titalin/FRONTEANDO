@@ -14,12 +14,14 @@ class TemperaturaController extends Controller
             'locker_id' => 'required|string',
             'temperatura' => 'required|numeric',
             'humedad' => 'required|numeric',
+            'peso' => 'nullable|numeric', // ✅ Nuevo campo opcional
         ]);
 
         $registro = Temperatura::create([
             'locker_id' => $request->locker_id,
             'temperatura' => $request->temperatura,
             'humedad' => $request->humedad,
+            'peso' => $request->peso ?? null, // ✅ Guardar peso si viene
             'timestamp' => now()
         ]);
 

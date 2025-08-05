@@ -25,6 +25,7 @@ type Locker = {
   sensores?: {
     temperatura: number;
     humedad: number;
+    peso?: number | null; // ✅ Campo agregado
     fecha: string;
   } | null;
 };
@@ -34,13 +35,12 @@ export default function LockerScreen() {
   const [lockers, setLockers] = useState<Locker[]>([]);
   const [currentLocker, setCurrentLocker] = useState<Locker | null>(null);
   const colorAnim = useRef(new Animated.Value(0)).current;
-  const API_LARAVEL = 'http://10.13.14.156:8000/temperatura/';
+  const API_LARAVEL = 'http://10.13.7.193:8000/temperatura/';
   const [loading, setLoading] = useState(true);
 
   const fetchLockers = async () => {
     setLoading(true);
     try {
-      // Lee el usuario logueado
       const userStr = await AsyncStorage.getItem('usuario');
       if (!userStr) {
         setLockers([]);
@@ -51,7 +51,6 @@ export default function LockerScreen() {
       const usuario = JSON.parse(userStr);
       const userId = usuario.id;
 
-      // Consulta todos los lockers y filtra por usuario logueado
       const res = await api.get('/lockers');
       const lockersDelUsuario = res.data.filter(
         (locker: Locker) => locker.usuario_id === userId
@@ -81,6 +80,7 @@ export default function LockerScreen() {
                   ? {
                       temperatura: sensor.temperatura,
                       humedad: sensor.humedad,
+                      peso: sensor.peso ?? null, // ✅ Nuevo campo
                       fecha: sensor.timestamp || '',
                     }
                   : null,
@@ -163,6 +163,12 @@ export default function LockerScreen() {
                   <Icon name="thermometer" size={20} color="#0c1b3a" style={{ marginRight: 8 }} />
                   <Text style={styles.infoText}>Temperatura: {currentLocker.sensores.temperatura}°C</Text>
                 </View>
+                <View style={styles.infoRow}>
+                  <Icon name="scale" size={20} color="#0c1b3a" style={{ marginRight: 8 }} />
+                  <Text style={styles.infoText}>
+                    Peso: {currentLocker.sensores.peso !== null ? `${currentLocker.sensores.peso} kg` : 'N/A'}
+                  </Text>
+                </View>
               </>
             ) : currentLocker.estado === 'activo' ? (
               <Text style={styles.infoText}>Sin datos de sensores</Text>
@@ -190,7 +196,6 @@ export default function LockerScreen() {
         </Animated.View>
       ) : null}
 
-      {/* Otros lockers */}
       {lockers.length > 1 && (
         <>
           <Text style={styles.subtitle}>Otros Lockers Disponibles:</Text>

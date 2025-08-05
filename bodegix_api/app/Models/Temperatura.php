@@ -13,6 +13,7 @@ class Temperatura extends Model
         'locker_id',
         'temperatura',
         'humedad',
+        'peso', // ✅ Campo agregado
         'timestamp'
     ];
 }
