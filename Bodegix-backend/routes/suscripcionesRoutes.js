@@ -1,7 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const suscripcionesController = require('../controllers/suscripcionesController'); // ✅ Corregido a plural
+const suscripcionesController = require('../controllers/suscripcionesController');
 const auth = require('../middlewares/authMiddleware'); // Protege con auth
+
+// 📌 Primero el endpoint de reporte (antes de /:id)
+// Quita el auth si quieres probar sin token
+router.get('/reporte', suscripcionesController.getReporteSuscripciones);
 
 // ✅ GET todas las suscripciones
 router.get('/', auth, suscripcionesController.getSuscripciones);
