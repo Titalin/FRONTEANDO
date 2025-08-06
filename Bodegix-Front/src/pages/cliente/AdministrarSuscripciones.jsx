@@ -6,6 +6,7 @@ import {
 import Sidebar from '../../components/Layout/Sidebar';
 import Topbar from '../../components/Layout/Topbar';
 import { jwtDecode } from 'jwt-decode';
+import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 
 const AdministrarSuscripciones = () => {
   const [planes, setPlanes] = useState([]);
@@ -13,7 +14,8 @@ const AdministrarSuscripciones = () => {
   const [empresaId, setEmpresaId] = useState(null);
   const [alerta, setAlerta] = useState('');
   const [planActual, setPlanActual] = useState(null);
-  const [suscripcionId, setSuscripcionId] = useState(null); // NUEVO
+  const [suscripcionId, setSuscripcionId] = useState(null);
+  const [planSeleccionado, setPlanSeleccionado] = useState(null); // nuevo para pago PayPal
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -47,7 +49,7 @@ const AdministrarSuscripciones = () => {
         } else {
           const plan = dataPlanes.find(p => p.id === activa.plan_id);
           setPlanActual(plan);
-          setSuscripcionId(activa.id); // guardar ID
+          setSuscripcionId(activa.id);
         }
       } catch (error) {
         console.error('Error al cargar planes o suscripciones:', error);
@@ -84,6 +86,7 @@ const AdministrarSuscripciones = () => {
         setSuscripcionActiva(true);
         setPlanActual(plan);
         setSuscripcionId(nueva.id);
+        setPlanSeleccionado(null); // ocultar PayPal
         setAlerta('Suscripción activada correctamente. ¡Gracias!');
       } else {
         const err = await res.json();
@@ -160,9 +163,9 @@ const AdministrarSuscripciones = () => {
                           <Button
                             fullWidth
                             variant="contained"
-                            onClick={() => contratarPlan(plan)}
+                            onClick={() => setPlanSeleccionado(plan)}
                           >
-                            Activar este plan
+                            Pagar con PayPal
                           </Button>
                         </Box>
                       </CardContent>
@@ -171,11 +174,35 @@ const AdministrarSuscripciones = () => {
                 ))}
               </Grid>
 
-              <Box mt={3}>
-                <Typography variant="body2" color="text.disabled">
-                  Sección de pago con PayPal próximamente...
-                </Typography>
-              </Box>
+              {planSeleccionado && (
+                <Box mt={3}>
+                  <Typography variant="body1" gutterBottom>
+                    Pagando el plan: {planSeleccionado.nombre} (${parseFloat(planSeleccionado.costo).toFixed(2)})
+                  </Typography>
+                  <PayPalScriptProvider options={{ "client-id": process.env.REACT_APP_PAYPAL_CLIENT_ID }}>
+                    <PayPalButtons
+                      style={{ layout: "vertical" }}
+                      createOrder={async () => {
+                        const res = await fetch(`http://localhost:5000/api/paypal/create-order`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ amount: planSeleccionado.costo })
+                        });
+                        const data = await res.json();
+                        return data.id;
+                      }}
+                      onApprove={async (data) => {
+                        await fetch(`http://localhost:5000/api/paypal/capture-order/${data.orderID}`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ empresa_id: empresaId })
+                        });
+                        contratarPlan(planSeleccionado);
+                      }}
+                    />
+                  </PayPalScriptProvider>
+                </Box>
+              )}
             </>
           ) : (
             <>

@@ -13,8 +13,9 @@ const accesosRoutes = require('./routes/accesosRoutes');
 const suscripcionesRoutes = require('./routes/suscripcionesRoutes');
 const eventosRoutes = require('./routes/eventosRoutes');
 const loginMovilRoutes = require('./routes/loginMovilRoute');
+const paypalRoutes = require('./routes/paypalRoutes'); // aquí la importación
 
-const app = express();
+const app = express(); // ahora primero creamos app
 app.use(cors());
 app.use(express.json());
 
@@ -28,10 +29,7 @@ app.use('/api/accesos', accesosRoutes);
 app.use('/api/suscripciones', suscripcionesRoutes);
 app.use('/api/eventos', eventosRoutes);
 app.use('/api/movil', loginMovilRoutes);
-
-//const alertasRoutes = require('./routes/alertasRoutes');
-//app.use('/api/alertas', alertasRoutes);
-
+app.use('/api/paypal', paypalRoutes); // ahora sí lo usamos aquí
 
 // Conexión a base de datos y arranque de servidor
 const PORT = process.env.PORT || 5000;
