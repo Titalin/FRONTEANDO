@@ -13,12 +13,13 @@ const accesosRoutes = require('./routes/accesosRoutes');
 const suscripcionesRoutes = require('./routes/suscripcionesRoutes');
 const eventosRoutes = require('./routes/eventosRoutes');
 const loginMovilRoutes = require('./routes/loginMovilRoute');
+const reportsRoutes = require('./routes/reportsRoutes'); // Importar rutas
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Rutas
+// Registrar rutas
 app.use('/api/planes', planesRoutes);
 app.use('/api/empresas', empresasRoutes);
 app.use('/api/roles', rolesRoutes);
@@ -28,12 +29,9 @@ app.use('/api/accesos', accesosRoutes);
 app.use('/api/suscripciones', suscripcionesRoutes);
 app.use('/api/eventos', eventosRoutes);
 app.use('/api/movil', loginMovilRoutes);
+app.use('/api/reports', reportsRoutes);// Registrar la nueva ruta
 
-//const alertasRoutes = require('./routes/alertasRoutes');
-//app.use('/api/alertas', alertasRoutes);
-
-
-// Conexión a base de datos y arranque de servidor
+// Conexión y arranque
 const PORT = process.env.PORT || 5000;
 
 sequelize.sync({ alter: false })
