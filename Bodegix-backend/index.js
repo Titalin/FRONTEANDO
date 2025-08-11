@@ -13,13 +13,11 @@ const accesosRoutes = require('./routes/accesosRoutes');
 const suscripcionesRoutes = require('./routes/suscripcionesRoutes');
 const eventosRoutes = require('./routes/eventosRoutes');
 const loginMovilRoutes = require('./routes/loginMovilRoute');
-<<<<<<< HEAD
-const paypalRoutes = require('./routes/paypalRoutes'); // aquí la importación
-=======
-const reportsRoutes = require('./routes/reportsRoutes'); // Importar rutas
->>>>>>> 8853c58bc2284cec79507bfa1c33a140a06b69e8
+const paypalRoutes = require('./routes/paypalRoutes'); // Ruta PayPal
+const reportsRoutes = require('./routes/reportsRoutes'); // Ruta Reports
 
-const app = express(); // ahora primero creamos app
+
+const app = express();
 app.use(cors());
 app.use(express.json());
 
@@ -33,24 +31,21 @@ app.use('/api/accesos', accesosRoutes);
 app.use('/api/suscripciones', suscripcionesRoutes);
 app.use('/api/eventos', eventosRoutes);
 app.use('/api/movil', loginMovilRoutes);
-<<<<<<< HEAD
-app.use('/api/paypal', paypalRoutes); // ahora sí lo usamos aquí
+app.use('/api/paypal', paypalRoutes);
+app.use('/api/reports', reportsRoutes);
+app.use('/api/paypal', require('./routes/paypalRoutes'));
 
-// Conexión a base de datos y arranque de servidor
-=======
-app.use('/api/reports', reportsRoutes);// Registrar la nueva ruta
 
 // Conexión y arranque
->>>>>>> 8853c58bc2284cec79507bfa1c33a140a06b69e8
 const PORT = process.env.PORT || 5000;
 
 sequelize.sync({ alter: false })
   .then(() => {
-    console.log(' Base de datos conectada y sincronizada');
+    console.log('✅ Base de datos conectada y sincronizada');
     app.listen(PORT, () => {
-      console.log(` Bodegix backend corriendo en el puerto ${PORT}`);
+      console.log(`🚀 Bodegix backend corriendo en el puerto ${PORT}`);
     });
   })
   .catch((error) => {
-    console.error(' Error al conectar con la base de datos:', error);
+    console.error('❌ Error al conectar con la base de datos:', error);
   });

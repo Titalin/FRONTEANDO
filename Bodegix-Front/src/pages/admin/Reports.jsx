@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Box, Typography, Paper, Button } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -21,7 +21,9 @@ const Reports = () => {
   const [fechaInicio, setFechaInicio] = useState(dayjs().startOf('month'));
   const [fechaFin, setFechaFin] = useState(dayjs().endOf('month'));
 
-  // Cargar ingresos totales globales
+  const barChartRef = useRef(null);
+  const lineChartRef = useRef(null);
+
   const cargarTotales = () => {
     fetch('http://localhost:5000/api/reports/ingresos/totales')
       .then(res => res.json())
@@ -29,7 +31,6 @@ const Reports = () => {
       .catch(() => setIngresosTotales(0));
   };
 
-  // Cargar ingresos por empresa y total filtrados
   const cargarPorEmpresa = () => {
     const inicio = fechaInicio.format('YYYY-MM-DD');
     const fin = fechaFin.format('YYYY-MM-DD');
@@ -45,7 +46,6 @@ const Reports = () => {
       .catch(() => setIngresosTotales(0));
   };
 
-  // Cargar ingresos mensuales globales
   const cargarMensuales = () => {
     fetch('http://localhost:5000/api/reports/ingresos/mensuales')
       .then(res => res.json())
@@ -53,7 +53,6 @@ const Reports = () => {
       .catch(() => setIngresosMensuales([]));
   };
 
-  // Exportar a Excel
   const exportarExcel = () => {
     const ws = XLSX.utils.json_to_sheet(ingresosPorEmpresa);
     const wb = XLSX.utils.book_new();
@@ -61,7 +60,6 @@ const Reports = () => {
     XLSX.writeFile(wb, "reporte_ingresos.xlsx");
   };
 
-  // Exportar a PDF
   const exportarPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(18);
@@ -78,6 +76,18 @@ const Reports = () => {
       head: [['Empresa', 'Ingresos']],
       body: tableData,
     });
+
+    // Agregar gráficas como imágenes
+    const yPosition = doc.lastAutoTable.finalY + 10;
+    if (barChartRef.current) {
+      const barImg = barChartRef.current.toBase64Image();
+      doc.addImage(barImg, 'PNG', 14, yPosition, 180, 70);
+    }
+
+    if (lineChartRef.current) {
+      const lineImg = lineChartRef.current.toBase64Image();
+      doc.addImage(lineImg, 'PNG', 14, yPosition + 80, 180, 70);
+    }
 
     doc.save("reporte_ingresos.pdf");
   };
@@ -148,27 +158,13 @@ const Reports = () => {
         {/* Gráfica por empresa */}
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" gutterBottom>Ingresos por empresa</Typography>
-          <Bar data={dataChartBar} />
+          <Bar ref={barChartRef} data={dataChartBar} />
         </Paper>
 
         {/* Gráfica de línea mensual */}
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" gutterBottom>Evolución mensual de ingresos</Typography>
-          <Line data={dataChartLine} />
-        </Paper>
-
-        {/* Detalle */}
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6">Detalle por empresa</Typography>
-          {ingresosPorEmpresa.length > 0 ? (
-            ingresosPorEmpresa.map((e, i) => (
-              <Typography key={i}>
-                {e.empresa}: ${Number(e.ingresos).toFixed(2)}
-              </Typography>
-            ))
-          ) : (
-            <Typography>No hay datos disponibles</Typography>
-          )}
+          <Line ref={lineChartRef} data={dataChartLine} />
         </Paper>
       </Box>
     </Box>

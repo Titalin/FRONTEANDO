@@ -13,7 +13,6 @@ exports.getLockers = async (req, res) => {
 exports.createLocker = async (req, res) => {
   try {
     const {
-      identificador,
       ubicacion,
       estado,
       tipo,
@@ -25,6 +24,21 @@ exports.createLocker = async (req, res) => {
       hum_max,
       peso_max
     } = req.body;
+
+    // Buscar el último locker de esta empresa
+    const ultimoLocker = await Locker.findOne({
+      where: { empresa_id },
+      order: [['id', 'DESC']] // último creado
+    });
+
+    // Calcular el siguiente identificador
+    let siguienteId = 1;
+    if (ultimoLocker) {
+      siguienteId = parseInt(ultimoLocker.identificador, 10) + 1;
+    }
+
+    // Formatear con ceros a la izquierda (001, 002, 003...)
+    const identificador = String(siguienteId).padStart(3, '0');
 
     const locker = await Locker.create({
       identificador,
@@ -45,6 +59,7 @@ exports.createLocker = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 exports.updateLocker = async (req, res) => {
   try {
