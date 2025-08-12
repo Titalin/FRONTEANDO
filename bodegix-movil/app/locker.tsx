@@ -35,7 +35,7 @@ export default function LockerScreen() {
   const [lockers, setLockers] = useState<Locker[]>([]);
   const [currentLocker, setCurrentLocker] = useState<Locker | null>(null);
   const colorAnim = useRef(new Animated.Value(0)).current;
-  const API_LARAVEL = 'http://192.168.1.135:8000/temperatura/';
+  const API_LARAVEL = 'http://10.13.14.245:8000/temperatura/';
   const [loading, setLoading] = useState(true);
 
   const fetchLockers = async () => {
