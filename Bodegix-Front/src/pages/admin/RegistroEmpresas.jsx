@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box, Typography, Paper, TextField, Button,
   Grid, Table, TableHead, TableRow, TableCell,
@@ -6,6 +6,69 @@ import {
 } from '@mui/material';
 import Sidebar from '../../components/Layout/Sidebar';
 import Topbar from '../../components/Layout/Topbar';
+
+// Clave normalizada por STRING para evitar problemas de tipos (número vs string vs UUID)
+const toKey = (v) => {
+  if (v === null || v === undefined) return null;
+  // Limpia espacios y convierte todo a string estable
+  const s = String(v).trim();
+  return s.length ? s : null;
+};
+
+// --- Normalizadores --- //
+const normalizeEmpresa = (e) => {
+  // Busca el id en múltiples variantes y vuelve clave string
+  const key =
+    toKey(e?.id) ??
+    toKey(e?.empresa_id) ??
+    toKey(e?.id_empresa) ??
+    toKey(e?.company_id) ??
+    toKey(e?.empresaId) ??
+    toKey(e?.empresa?.id);
+
+  return {
+    ...e,
+    __key: key, // clave interna para matching
+    id: e?.id ?? e?.empresa_id ?? e?.id_empresa ?? e?.empresa?.id ?? key, // preserva lo que tengas
+    nombre: e?.nombre ?? e?.name ?? e?.razon_social ?? e?.razonSocial ?? '',
+    telefono: e?.telefono ?? e?.phone ?? '',
+    direccion: e?.direccion ?? e?.address ?? '',
+  };
+};
+
+const normalizeUsuario = (u) => {
+  const empKey =
+    toKey(u?.empresa_id) ??
+    toKey(u?.empresaId) ??
+    toKey(u?.company_id) ??
+    toKey(u?.id_empresa) ??
+    toKey(u?.empresa?.id) ??
+    toKey(u?.company?.id);
+
+  // rol_id robusto
+  let rol_id =
+    u?.rol_id ?? u?.role_id ?? u?.rol ?? u?.role ?? u?.rol?.id ?? u?.role?.id;
+
+  if (rol_id === undefined || rol_id === null || rol_id === '') {
+    const roleName = String(
+      u?.rol_nombre ??
+      u?.role_name ??
+      u?.rol?.nombre ??
+      u?.role?.name ??
+      u?.roleName ??
+      u?.rolName ??
+      ''
+    ).toLowerCase();
+    if (roleName.includes('admin')) rol_id = 2;
+    if (roleName.includes('emple')) rol_id = 3;
+  }
+
+  // Asegura número si es numérico, si no déjalo como string (lo comparamos con Number más abajo)
+  const nRol = Number(rol_id);
+  const rol = Number.isNaN(nRol) ? rol_id : nRol;
+
+  return { ...u, __empKey: empKey, rol_id: rol };
+};
 
 const RegistroEmpresas = () => {
   const [empresas, setEmpresas] = useState([]);
@@ -20,14 +83,29 @@ const RegistroEmpresas = () => {
     try {
       const [empRes, usrRes] = await Promise.all([
         fetch('/api/empresas', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/usuarios', { headers: { Authorization: `Bearer ${token}` } })
+        fetch('/api/usuarios/admin', { headers: { Authorization: `Bearer ${token}` } })
       ]);
 
-      const empresasData = await empRes.json();
-      const usuariosData = await usrRes.json();
+      const empresasDataRaw = await empRes.json();
+      const usuariosDataRaw = await usrRes.json();
 
-      setEmpresas(empresasData);
-      setUsuarios(usuariosData);
+      const empresasFuente = Array.isArray(empresasDataRaw)
+        ? empresasDataRaw
+        : empresasDataRaw?.data ?? empresasDataRaw?.empresas ?? empresasDataRaw?.items ?? [];
+
+      const usuariosFuente = Array.isArray(usuariosDataRaw)
+        ? usuariosDataRaw
+        : usuariosDataRaw?.data ?? usuariosDataRaw?.usuarios ?? usuariosDataRaw?.items ?? [];
+
+      const empresasNormalizadas = empresasFuente.map(normalizeEmpresa);
+      const usuariosNormalizados = usuariosFuente.map(normalizeUsuario);
+
+      // DEBUG opcional en consola para ver exactamente qué llega
+      console.table(empresasNormalizadas.map(e => ({ __key: e.__key, id: e.id, nombre: e.nombre })));
+      console.table(usuariosNormalizados.map(u => ({ __empKey: u.__empKey, rol_id: u.rol_id })));
+
+      setEmpresas(empresasNormalizadas);
+      setUsuarios(usuariosNormalizados);
     } catch (err) {
       console.error('Error al obtener empresas o usuarios:', err);
     }
@@ -35,13 +113,26 @@ const RegistroEmpresas = () => {
 
   useEffect(() => {
     fetchEmpresasYUsuarios();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
-  const empleadosPorEmpresa = (empresaId) =>
-    usuarios.filter((u) => u.empresa_id === empresaId && u.rol_id === 3).length;
+  // Conteo por clave string
+  const conteosPorKey = useMemo(() => {
+    const map = new Map(); // empKey -> { empleados, admins }
+    for (const u of usuarios) {
+      const key = u?.__empKey;
+      if (!key) continue;
 
-  const adminsPorEmpresa = (empresaId) =>
-    usuarios.filter((u) => u.empresa_id === empresaId && u.rol_id === 2).length;
+      // fuerza rol a número si es posible
+      const nRol = Number(u?.rol_id);
+      const rol = Number.isNaN(nRol) ? u?.rol_id : nRol;
+
+      if (!map.has(key)) map.set(key, { empleados: 0, admins: 0 });
+      if (rol === 3 || String(rol) === '3') map.get(key).empleados++;
+      if (rol === 2 || String(rol) === '2') map.get(key).admins++;
+    }
+    return map;
+  }, [usuarios]);
 
   const handleEmpresaChange = (e) => {
     setFormEmpresa({ ...formEmpresa, [e.target.name]: e.target.value });
@@ -73,7 +164,11 @@ const RegistroEmpresas = () => {
 
   const handleSeleccionEmpresa = (empresa) => {
     setEmpresaSeleccionada(empresa);
-    setFormEmpresa(empresa);
+    setFormEmpresa({
+      nombre: empresa?.nombre || '',
+      telefono: empresa?.telefono || '',
+      direccion: empresa?.direccion || ''
+    });
     setFormAdmin({ nombre: '', correo: '', contraseña: '' });
   };
 
@@ -114,6 +209,7 @@ const RegistroEmpresas = () => {
         body: JSON.stringify({
           ...formAdmin,
           rol_id: 2, // Admin Empresa
+          // usa el id visible; el backend sabrá guardarlo como corresponda
           empresa_id: empresaSeleccionada.id
         })
       });
@@ -256,20 +352,24 @@ const RegistroEmpresas = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {empresas.map((empresa) => (
-                  <TableRow key={empresa.id}>
-                    <TableCell>{empresa.nombre}</TableCell>
-                    <TableCell>{empresa.telefono || 'N/A'}</TableCell>
-                    <TableCell>{empresa.direccion || 'N/A'}</TableCell>
-                    <TableCell>{empleadosPorEmpresa(empresa.id)}</TableCell>
-                    <TableCell>{adminsPorEmpresa(empresa.id)}</TableCell>
-                    <TableCell>
-                      <Button size="small" variant="outlined" onClick={() => handleSeleccionEmpresa(empresa)}>
-                        Seleccionar
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {empresas.map((empresa) => {
+                  const key = empresa.__key ?? toKey(empresa?.id);
+                  const counts = (key && conteosPorKey.get(key)) || { empleados: 0, admins: 0 };
+                  return (
+                    <TableRow key={empresa.id ?? `${empresa.nombre}-${key}`}>
+                      <TableCell>{empresa.nombre}</TableCell>
+                      <TableCell>{empresa.telefono || 'N/A'}</TableCell>
+                      <TableCell>{empresa.direccion || 'N/A'}</TableCell>
+                      <TableCell>{counts.empleados}</TableCell>
+                      <TableCell>{counts.admins}</TableCell>
+                      <TableCell>
+                        <Button size="small" variant="outlined" onClick={() => handleSeleccionEmpresa(empresa)}>
+                          Seleccionar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>
