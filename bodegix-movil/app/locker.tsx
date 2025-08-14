@@ -11,13 +11,18 @@ import {
   View,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import api from '../src/utils/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LockerNavigationProp } from '../src/navigation';
 
+// ⚠️ Ajusta esta URL según tu entorno:
+// - Dispositivo físico: http://<IP-de-tu-PC>:5000
+// - Emulador Android (AVD): http://10.0.2.2:5000
+// - iOS Simulator (misma Mac): http://localhost:5000
+const API_BASE = 'http://192.168.1.148:5000';
+
 type Locker = {
   id: number;
-  identificador: string;
+  identificador: string;   // "001", "002", etc.
   ubicacion: string;
   tipo: string;
   estado: string;
@@ -25,7 +30,7 @@ type Locker = {
   sensores?: {
     temperatura: number;
     humedad: number;
-    peso?: number | null; // ✅ Campo agregado
+    peso?: number | null;
     fecha: string;
   } | null;
 };
@@ -34,78 +39,10 @@ export default function LockerScreen() {
   const navigation = useNavigation<LockerNavigationProp>();
   const [lockers, setLockers] = useState<Locker[]>([]);
   const [currentLocker, setCurrentLocker] = useState<Locker | null>(null);
-  const colorAnim = useRef(new Animated.Value(0)).current;
-  const API_LARAVEL = 'http://192.168.1.148:8000/temperatura/';
   const [loading, setLoading] = useState(true);
 
-  const fetchLockers = async () => {
-    setLoading(true);
-    try {
-      const userStr = await AsyncStorage.getItem('usuario');
-      if (!userStr) {
-        setLockers([]);
-        setCurrentLocker(null);
-        setLoading(false);
-        return;
-      }
-      const usuario = JSON.parse(userStr);
-      const userId = usuario.id;
-
-      const res = await api.get('/lockers');
-      const lockersDelUsuario = res.data.filter(
-        (locker: Locker) => locker.usuario_id === userId
-      );
-
-      if (lockersDelUsuario.length === 0) {
-        setLockers([]);
-        setCurrentLocker(null);
-        setLoading(false);
-        return;
-      }
-
-      const lockersWithSensores = await Promise.all(
-        lockersDelUsuario.map(async (locker: Locker) => {
-          const lockerIdMongo = `LOCKER_${locker.identificador.padStart(3, '0')}`;
-          if (locker.estado === 'activo') {
-            try {
-              const sensoresRes = await fetch(`${API_LARAVEL}${lockerIdMongo}`);
-              const sensoresData = await sensoresRes.json();
-              const sensor =
-                Array.isArray(sensoresData) && sensoresData.length > 0
-                  ? sensoresData[0]
-                  : null;
-              return {
-                ...locker,
-                sensores: sensor
-                  ? {
-                      temperatura: sensor.temperatura,
-                      humedad: sensor.humedad,
-                      peso: sensor.peso ?? null, // ✅ Nuevo campo
-                      fecha: sensor.timestamp || '',
-                    }
-                  : null,
-              };
-            } catch {
-              return { ...locker, sensores: null };
-            }
-          }
-          return { ...locker, sensores: null };
-        })
-      );
-      setLockers(lockersWithSensores);
-      setCurrentLocker(lockersWithSensores[0]);
-    } catch (err) {
-      console.error('Error al obtener lockers:', err);
-      setLockers([]);
-      setCurrentLocker(null);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchLockers();
-  }, []);
-
+  // Animación del marco
+  const colorAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -115,11 +52,64 @@ export default function LockerScreen() {
       ])
     ).start();
   }, []);
-
   const backgroundColor = colorAnim.interpolate({
     inputRange: [0, 1, 2],
     outputRange: ['#f5a623', '#00bfff', '#32cd32'],
   });
+
+  // Carga lockers + sensores en UNA SOLA LLAMADA
+  const fetchLockers = async () => {
+    setLoading(true);
+    const controller = new AbortController();
+    try {
+      const userStr = await AsyncStorage.getItem('usuario');
+      if (!userStr) {
+        setLockers([]);
+        setCurrentLocker(null);
+        return;
+      }
+
+      const usuario = JSON.parse(userStr);
+      const userId: number = Number(usuario?.id);
+      if (!userId) {
+        console.warn('usuario.id no válido en AsyncStorage:', usuario);
+        setLockers([]);
+        setCurrentLocker(null);
+        return;
+      }
+
+      const url = `${API_BASE}/api/lockers-with-sensors?user_id=${userId}`;
+      const resp = await fetch(url, { signal: controller.signal });
+
+      console.log('GET', url, 'status', resp.status);
+      if (!resp.ok) {
+        const msg = await resp.text().catch(() => '');
+        throw new Error(`Backend no OK (${resp.status}) ${msg}`);
+      }
+
+      const data: Locker[] = await resp.json();
+      // Asegurar propiedad sensores siempre presente
+      const safeData = data.map(l => ({ ...l, sensores: l.sensores ?? null }));
+
+      setLockers(safeData);
+      setCurrentLocker(safeData[0] ?? null);
+      console.log('lockers count:', safeData.length);
+      if (safeData[0]?.sensores) {
+        console.log('primer locker sensores:', safeData[0].sensores);
+      }
+    } catch (err) {
+      console.error('Error al obtener lockers+sensores:', err);
+      setLockers([]);
+      setCurrentLocker(null);
+    } finally {
+      setLoading(false);
+      controller.abort();
+    }
+  };
+
+  useEffect(() => {
+    fetchLockers();
+  }, []);
 
   const otherLockers = lockers.filter(l => l.id !== currentLocker?.id);
 
@@ -145,34 +135,45 @@ export default function LockerScreen() {
             <View style={styles.lockerNumber}>
               <Text style={styles.lockerNumberText}>{currentLocker.identificador}</Text>
             </View>
+
             <View style={styles.infoRow}>
               <Icon name="location" size={20} color="#0c1b3a" style={{ marginRight: 8 }} />
               <Text style={styles.infoText}>Ubicación: {currentLocker.ubicacion}</Text>
             </View>
+
             <View style={styles.infoRow}>
               <Icon name="cube" size={20} color="#0c1b3a" style={{ marginRight: 8 }} />
               <Text style={styles.infoText}>Tipo: {currentLocker.tipo}</Text>
             </View>
+
             {currentLocker.estado === 'activo' && currentLocker.sensores ? (
               <>
                 <View style={styles.infoRow}>
                   <Icon name="water" size={20} color="#0c1b3a" style={{ marginRight: 8 }} />
-                  <Text style={styles.infoText}>Humedad: {currentLocker.sensores.humedad}%</Text>
+                  <Text style={styles.infoText}>
+                    Humedad: {currentLocker.sensores.humedad}%
+                  </Text>
                 </View>
                 <View style={styles.infoRow}>
                   <Icon name="thermometer" size={20} color="#0c1b3a" style={{ marginRight: 8 }} />
-                  <Text style={styles.infoText}>Temperatura: {currentLocker.sensores.temperatura}°C</Text>
+                  <Text style={styles.infoText}>
+                    Temperatura: {currentLocker.sensores.temperatura}°C
+                  </Text>
                 </View>
                 <View style={styles.infoRow}>
                   <Icon name="scale" size={20} color="#0c1b3a" style={{ marginRight: 8 }} />
                   <Text style={styles.infoText}>
-                    Peso: {currentLocker.sensores.peso !== null ? `${currentLocker.sensores.peso} kg` : 'N/A'}
+                    Peso:{' '}
+                    {currentLocker.sensores.peso !== null && currentLocker.sensores.peso !== undefined
+                      ? `${currentLocker.sensores.peso} kg`
+                      : 'N/A'}
                   </Text>
                 </View>
               </>
             ) : currentLocker.estado === 'activo' ? (
               <Text style={styles.infoText}>Sin datos de sensores</Text>
             ) : null}
+
             <View style={styles.infoRow}>
               <Icon
                 name={currentLocker.estado === 'activo' ? 'checkmark-circle' : 'close-circle'}
@@ -184,11 +185,9 @@ export default function LockerScreen() {
                 Estado: {currentLocker.estado === 'activo' ? 'Activo' : 'Inactivo'}
               </Text>
             </View>
+
             {currentLocker.estado === 'activo' && (
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={fetchLockers}
-              >
+              <TouchableOpacity style={styles.actionButton} onPress={fetchLockers}>
                 <Text style={styles.actionButtonText}>Recargar Datos</Text>
               </TouchableOpacity>
             )}

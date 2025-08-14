@@ -15,15 +15,21 @@ const accesosRoutes = require('./routes/accesosRoutes');
 const suscripcionesRoutes = require('./routes/suscripcionesRoutes');
 const eventosRoutes = require('./routes/eventosRoutes');
 const loginMovilRoutes = require('./routes/loginMovilRoute');
-const paypalRoutes = require('./routes/paypalRoutes'); // aquí la importación
-const reportsRoutes = require('./routes/reportsRoutes'); // Importar rutas
+const paypalRoutes = require('./routes/paypalRoutes');
+const reportsRoutes = require('./routes/reportsRoutes');
+const lockersSensorsRoutes = require('./routes/lockersSensorsRoutes');
 
-// Ruta Mongo
-const temperaturasRouter = require('./routes/temperaturas'); // ← nombre correcto
+// Rutas Mongo (API agrupada + compat para la app móvil)
+const { api: temperaturasRouter, compat: temperaturaCompat } = require('./routes/temperaturas');
 
 const app = express();
+
+// Middlewares
 app.use(cors());
 app.use(express.json());
+
+// Healthcheck (opcional)
+app.get('/health', (_req, res) => res.json({ ok: true, uptime: process.uptime() }));
 
 // Registrar rutas MySQL
 app.use('/api/planes', planesRoutes);
@@ -35,8 +41,16 @@ app.use('/api/accesos', accesosRoutes);
 app.use('/api/suscripciones', suscripcionesRoutes);
 app.use('/api/eventos', eventosRoutes);
 app.use('/api/movil', loginMovilRoutes);
-app.use('/api/paypal', paypalRoutes); 
+app.use('/api/paypal', paypalRoutes);
+app.use('/api/reports', reportsRoutes);
+
+app.use('/api', lockersSensorsRoutes);
+
+// Registrar rutas Mongo
+// /api/temperaturas -> lista, latest, latest-all
 app.use('/api/temperaturas', temperaturasRouter);
+// /api/temperatura -> GET /:lockerId (array compat) y POST (ingesta IoT)
+app.use('/api', temperaturaCompat);
 
 // Conexión a base de datos y arranque de servidor
 app.use('/api/reports', reportsRoutes);// Registrar la nueva ruta
@@ -57,5 +71,6 @@ const PORT = process.env.PORT || 5000;
     });
   } catch (error) {
     console.error('❌ Error al iniciar el servidor:', error);
+    process.exit(1);
   }
 })();
