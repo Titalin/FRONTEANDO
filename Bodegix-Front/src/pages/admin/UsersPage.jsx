@@ -1,4 +1,3 @@
-// src/pages/admin/UsersPage.jsx
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   Box,
@@ -22,6 +21,7 @@ import {
 } from '@mui/material';
 import { Search as SearchIcon, Cached as CachedIcon, People as PeopleIcon, Business as BusinessIcon } from '@mui/icons-material';
 import Sidebar from '../../components/Layout/Sidebar';
+import api from '../../services/api';
 
 const roleLabel = (r) => (r === 1 ? 'SuperAdmin' : r === 2 ? 'Admin Empresa' : 'Empleado');
 const roleColor = (r) => (r === 1 ? 'secondary' : r === 2 ? 'info' : 'success');
@@ -32,23 +32,27 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState('todos');
   const [loading, setLoading] = useState(true);
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch('/usuarios/admin', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
+      // ⚠️ SIN /api — el baseURL ya termina en /api
+      const { data } = await api.get('/usuarios/admin');
       setUsers(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error al obtener usuarios:', error);
+    } catch (err) {
+      const url = (err?.config?.baseURL || '') + (err?.config?.url || '');
+      console.error('Error al obtener usuarios:', {
+        url,
+        status: err?.response?.status,
+        ctype: err?.response?.headers?.['content-type'],
+        body: typeof err?.response?.data === 'string'
+          ? err.response.data.slice(0, 200)
+          : err?.response?.data,
+      });
       setUsers([]);
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchUsers();
@@ -90,7 +94,6 @@ export default function UsersPage() {
     <Box display="flex" minHeight="100vh" sx={{ background: 'linear-gradient(120deg, #1a2540 70%, #232E4F 100%)' }}>
       <Sidebar />
       <Box flexGrow={1} p={0}>
-
         {/* Barra de búsqueda y filtros */}
         <Box
           sx={{
@@ -104,7 +107,7 @@ export default function UsersPage() {
         >
           <Stack
             direction={{ xs: 'column', md: 'row' }}
-            spacing={1.5} // 🔹 Espaciado reducido
+            spacing={1.5}
             alignItems={{ xs: 'stretch', md: 'center' }}
             justifyContent="space-between"
           >
@@ -123,7 +126,7 @@ export default function UsersPage() {
                 }}
                 sx={{
                   minWidth: 250,
-                  '& .MuiInputBase-root': { color: '#fff', height: 36 }, // 🔹 Menos alto
+                  '& .MuiInputBase-root': { color: '#fff', height: 36 },
                   '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.6)' },
                   '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
                 }}
@@ -137,7 +140,7 @@ export default function UsersPage() {
                 sx={{
                   bgcolor: 'rgba(255,255,255,0.15)',
                   borderRadius: 2,
-                  height: 36, // 🔹 Más compacto
+                  height: 36,
                   '& .MuiToggleButton-root': { color: '#fff', border: 'none', px: 1 },
                   '& .Mui-selected': { bgcolor: 'rgba(255,255,255,0.28) !important', fontWeight: 700 },
                 }}
@@ -170,7 +173,7 @@ export default function UsersPage() {
                   elevation={4}
                   sx={{
                     px: 1.5,
-                    py: 0.5, // 🔹 Más compacto
+                    py: 0.5,
                     borderRadius: 2,
                     bgcolor: 'rgba(255,255,255,0.15)',
                     color: '#fff',
@@ -235,7 +238,7 @@ export default function UsersPage() {
                         hover
                         sx={{
                           bgcolor: index % 2 ? 'rgba(255,255,255,0.02)' : 'transparent',
-                          '& td': { color: '#e6e9ef', py: 0.8 }, // 🔹 Reducido padding vertical
+                          '& td': { color: '#e6e9ef', py: 0.8 },
                         }}
                       >
                         <TableCell>{user?.nombre || 'N/A'}</TableCell>
