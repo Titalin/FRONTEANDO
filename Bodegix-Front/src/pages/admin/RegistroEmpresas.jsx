@@ -112,8 +112,8 @@ const RegistroEmpresas = () => {
       setLoading(true);
       setError('');
       const [empRes, usrRes] = await Promise.all([
-        fetch('/api/empresas', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/usuarios/admin', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/empresas', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/usuarios/admin', { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       const empresasDataRaw = await empRes.json().catch(() => []);
@@ -183,7 +183,7 @@ const RegistroEmpresas = () => {
     e.preventDefault();
     try {
       setLoadingAction(true);
-      const res = await fetch('/api/empresas', {
+      const res = await fetch('/empresas', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -220,7 +220,7 @@ const RegistroEmpresas = () => {
 
     try {
       setLoadingAction(true);
-      const res = await fetch(`/api/empresas/${empresaSeleccionada.id}`, {
+      const res = await fetch(`/empresas/${empresaSeleccionada.id}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -252,7 +252,7 @@ const RegistroEmpresas = () => {
 
     try {
       setLoadingAction(true);
-      const res = await fetch('/api/usuarios', {
+      const res = await fetch('/usuarios', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

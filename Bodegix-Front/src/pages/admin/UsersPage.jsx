@@ -37,7 +37,7 @@ export default function UsersPage() {
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/usuarios/admin', {
+      const res = await fetch('/usuarios/admin', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
