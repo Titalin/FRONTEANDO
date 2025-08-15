@@ -1,19 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
-  Box,
-  Typography,
-  Paper,
-  Grid,
-  Chip,
-  Divider,
-  Stack,
-  TextField,
-  InputAdornment,
-  ToggleButton,
-  ToggleButtonGroup,
-  IconButton,
-  Skeleton,
-  Tooltip,
+  Box, Typography, Paper, Grid, Chip, Divider, Stack, TextField, InputAdornment,
+  ToggleButton, ToggleButtonGroup, IconButton, Skeleton, Tooltip,
 } from '@mui/material';
 import Sidebar from '../../components/Layout/Sidebar';
 
@@ -26,11 +14,9 @@ import WarningIcon from '@mui/icons-material/Warning';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import TimelineIcon from '@mui/icons-material/Timeline';
 
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Legend, ResponsiveContainer
-} from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Legend, ResponsiveContainer } from 'recharts';
+import api from '../../services/api';
 
-// ---------- helpers de UI ----------
 const LINE_COLORS = ['#4FC3F7', '#FFB74D', '#81C784', '#BA68C8', '#64B5F6', '#FF8A65', '#AED581', '#9575CD', '#4DB6AC', '#F06292'];
 
 const statusColor = (estado) => {
@@ -39,80 +25,52 @@ const statusColor = (estado) => {
   if (e === 'inactiva') return { chip: 'error', bar: '#E53935' };
   return { chip: 'warning', bar: '#FFB300' };
 };
-
 const getStatusIcon = (estado) => {
   const e = String(estado || '').toLowerCase();
   if (e === 'activa') return <CheckCircleIcon sx={{ color: '#4CAF50' }} fontSize="large" />;
   if (e === 'inactiva') return <HighlightOffIcon sx={{ color: '#E53935' }} fontSize="large" />;
   return <WarningIcon sx={{ color: '#FFB300' }} fontSize="large" />;
 };
-
-const fmtDate = (d) => {
-  if (!d) return '—';
-  const dt = new Date(d);
-  return isNaN(dt.getTime()) ? String(d) : dt.toLocaleDateString();
-};
-
+const fmtDate = (d) => { if (!d) return '—'; const dt = new Date(d); return isNaN(dt.getTime()) ? String(d) : dt.toLocaleDateString(); };
 const pad2 = (n) => String(n).padStart(2, '0');
 
-// ---------- componente principal ----------
 const VisualizacionGraficas = () => {
-  // Datos base
   const [empresas, setEmpresas] = useState([]);
-  const [sinSub, setSinSub] = useState([]);            // de vw_empresas_sin_suscripcion
-  const [ultimas, setUltimas] = useState([]);          // de vw_panel_ultimas_suscripciones
-  const [historico, setHistorico] = useState([]);      // de vw_suscripciones_full
-  const [mensuales, setMensuales] = useState([]);      // de vw_suscripciones_mensuales
+  const [sinSub, setSinSub] = useState([]);
+  const [ultimas, setUltimas] = useState([]);
+  const [historico, setHistorico] = useState([]);
+  const [mensuales, setMensuales] = useState([]);
 
-  // UI state
   const [empresaSeleccionada, setEmpresaSeleccionada] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
-  const [estado, setEstado] = useState('todas'); // todas | activa | inactiva | otra
-
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  const API = process.env.NEXT_PUBLIC_API_URL || ''; // ← base URL del backend (ej. ../..)
-
-  const fetchJSON = async (url, headers) => {
-    const res = await fetch(url, { headers });
-    if (!res.ok) {
-      const msg = await res.text().catch(() => '');
-      throw new Error(`HTTP ${res.status} ${res.statusText} - ${url} - ${msg}`);
-    }
-    return res.json();
-  };
+  const [estado, setEstado] = useState('todas');
 
   const fetchDatos = useCallback(async () => {
     try {
       setLoading(true);
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
       const [emp, sin, ult, hist, men] = await Promise.all([
-        fetchJSON(`${API}/empresas`, headers),
-        fetchJSON(`${API}/empresas/sin-suscripcion`, headers),
-        fetchJSON(`${API}/suscripciones/ultimas`, headers),
-        fetchJSON(`${API}/suscripciones`, headers),
-        fetchJSON(`${API}/suscripciones/mensuales`, headers),
+        api.get('/empresas'),
+        api.get('/empresas/sin-suscripcion'),
+        api.get('/suscripciones/ultimas'),
+        api.get('/suscripciones'),
+        api.get('/suscripciones/mensuales'),
       ]);
-
-      setEmpresas(Array.isArray(emp) ? emp : []);
-      setSinSub(Array.isArray(sin) ? sin : []);
-      setUltimas(Array.isArray(ult) ? ult : []);
-      setHistorico(Array.isArray(hist) ? hist : []);
-      setMensuales(Array.isArray(men) ? men : []);
+      setEmpresas(Array.isArray(emp.data) ? emp.data : []);
+      setSinSub(Array.isArray(sin.data) ? sin.data : []);
+      setUltimas(Array.isArray(ult.data) ? ult.data : []);
+      setHistorico(Array.isArray(hist.data) ? hist.data : []);
+      setMensuales(Array.isArray(men.data) ? men.data : []);
     } catch (err) {
-      console.error('Error al obtener datos:', err);
+      console.error('Error al obtener datos:', { status: err?.response?.status, body: err?.response?.data });
       setEmpresas([]); setSinSub([]); setUltimas([]); setHistorico([]); setMensuales([]);
     } finally {
       setLoading(false);
     }
-  }, [token, API]);
+  }, []);
 
-  useEffect(() => {
-    fetchDatos();
-  }, [fetchDatos]);
+  useEffect(() => { fetchDatos(); }, [fetchDatos]);
 
-  // KPI (con base en ultimas)
   const kpis = useMemo(() => {
     const totalEmpresas = empresas.length;
     const activas = ultimas.filter(s => String(s?.estado || '').toLowerCase() === 'activa').length;
@@ -121,11 +79,9 @@ const VisualizacionGraficas = () => {
     return { totalEmpresas, activas, inactivas, sinSub: sin };
   }, [empresas, ultimas, sinSub]);
 
-  // Filtros de búsqueda
   const termino = busqueda.trim().toLowerCase();
   const matchTexto = (nombre) => !termino || String(nombre || '').toLowerCase().includes(termino);
 
-  // Tarjetas con suscripción (vienen de vw_panel_ultimas_suscripciones)
   const tarjetasConSub = useMemo(() => {
     return ultimas
       .filter((s) => matchTexto(s?.empresa_nombre))
@@ -138,8 +94,6 @@ const VisualizacionGraficas = () => {
       });
   }, [ultimas, termino, estado]);
 
-  // Tarjetas sin suscripción (vista devuelve empresa_id, empresa_nombre)
-  // Enriquecemos con teléfono/dirección si están en /empresas
   const tarjetasSinSub = useMemo(() => {
     if (!(estado === 'todas' || estado === 'inactiva' || estado === 'otra')) return [];
     const byId = new Map(empresas.map(e => [e.id, e]));
@@ -147,12 +101,7 @@ const VisualizacionGraficas = () => {
       .filter((s) => matchTexto(s?.empresa_nombre))
       .map((s) => {
         const extra = byId.get(s.empresa_id);
-        return {
-          id: s.empresa_id,
-          nombre: s.empresa_nombre,
-          telefono: extra?.telefono || null,
-          direccion: extra?.direccion || null,
-        };
+        return { id: s.empresa_id, nombre: s.empresa_nombre, telefono: extra?.telefono || null, direccion: extra?.direccion || null };
       });
   }, [sinSub, empresas, termino, estado]);
 
@@ -161,22 +110,15 @@ const VisualizacionGraficas = () => {
     setEmpresaSeleccionada(seleccionada || null);
   };
 
-  // --------- Gráfica mensual general (totales por mes) ----------
-  // vw_suscripciones_mensuales: anio, mes, total_suscripciones, total_ingresos
   const dataGraficaGeneral = useMemo(() => {
     return mensuales
-      .map(r => ({
-        mes: `${r.anio}-${pad2(r.mes)}`,
-        TotalSuscripciones: Number(r.total_suscripciones || 0),
-        TotalIngresos: Number(r.total_ingresos || 0),
-      }))
+      .map(r => ({ mes: `${r.anio}-${pad2(r.mes)}`, TotalSuscripciones: Number(r.total_suscripciones || 0), TotalIngresos: Number(r.total_ingresos || 0) }))
       .sort((a, b) => (a.mes < b.mes ? -1 : 1));
   }, [mensuales]);
 
-  // --------- Gráfica individual por empresa (histórico) ----------
   const dataEmpresaIndividual = useMemo(() => {
     if (!empresaSeleccionada) return [];
-    const map = new Map(); // 'YYYY-MM' -> total
+    const map = new Map();
     for (const s of historico) {
       const empresaIdPlano = s.empresa_id ?? s?.empresa?.id;
       if (empresaIdPlano !== empresaSeleccionada.id) continue;
@@ -185,36 +127,22 @@ const VisualizacionGraficas = () => {
       const key = `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}`;
       map.set(key, (map.get(key) || 0) + 1);
     }
-    return Array.from(map.entries())
-      .sort(([a], [b]) => (a < b ? -1 : 1))
-      .map(([mes, Total]) => ({ mes, Total }));
+    return Array.from(map.entries()).sort(([a], [b]) => (a < b ? -1 : 1)).map(([mes, Total]) => ({ mes, Total }));
   }, [historico, empresaSeleccionada]);
 
   return (
     <Box display="flex" minHeight="100vh" sx={{ background: 'linear-gradient(120deg, #1a2540 70%, #232E4F 100%)' }}>
       <Sidebar />
       <Box flexGrow={1} p={0}>
-
-        {/* Hero con KPIs */}
-        <Box
-          sx={{
-            background: 'linear-gradient(135deg, #1976d2 60%, #00c6fb 100%)',
-            px: 4, py: 3,
-            borderRadius: '0 0 24px 24px',
-            color: '#fff',
-            mb: 4,
-          }}
-        >
+        {/* Hero */}
+        <Box sx={{ background: 'linear-gradient(135deg, #1976d2 60%, #00c6fb 100%)', px: 4, py: 3, borderRadius: '0 0 24px 24px', color: '#fff', mb: 4 }}>
           <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} spacing={2}>
             <Box>
-              <Typography variant="h5" fontWeight={800}>
-                Estado y evolución de suscripciones
-              </Typography>
+              <Typography variant="h5" fontWeight={800}>Estado y evolución de suscripciones</Typography>
               <Typography variant="body2" sx={{ opacity: 0.95 }}>
                 Filtra por estado o busca por nombre de empresa. Haz clic en una tarjeta para ver su historial.
               </Typography>
             </Box>
-
             <Stack direction="row" spacing={2}>
               {[
                 { label: 'Empresas', value: kpis.totalEmpresas },
@@ -237,13 +165,7 @@ const VisualizacionGraficas = () => {
               placeholder="Buscar empresa…"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: '#fff' }} />
-                  </InputAdornment>
-                ),
-              }}
+              InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ color: '#fff' }} /></InputAdornment>) }}
               sx={{
                 minWidth: 260,
                 '& .MuiInputBase-root': { color: '#fff' },
@@ -251,43 +173,22 @@ const VisualizacionGraficas = () => {
                 '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
               }}
             />
-
             <ToggleButtonGroup
-              exclusive
-              value={estado}
-              onChange={(_e, v) => v && setEstado(v)}
-              size="small"
-              sx={{
-                bgcolor: 'rgba(255,255,255,0.15)',
-                borderRadius: 2,
-                '& .MuiToggleButton-root': {
-                  color: '#fff',
-                  border: 'none',
-                },
-                '& .Mui-selected': {
-                  bgcolor: 'rgba(255,255,255,0.25) !important',
-                  fontWeight: 700,
-                },
-              }}
+              exclusive value={estado} onChange={(_e, v) => v && setEstado(v)} size="small"
+              sx={{ bgcolor: 'rgba(255,255,255,0.15)', borderRadius: 2, '& .MuiToggleButton-root': { color: '#fff', border: 'none' }, '& .Mui-selected': { bgcolor: 'rgba(255,255,255,0.25) !important', fontWeight: 700 } }}
             >
               <ToggleButton value="todas">Todas</ToggleButton>
               <ToggleButton value="activa">Activas</ToggleButton>
               <ToggleButton value="inactiva">Inactivas</ToggleButton>
               <ToggleButton value="otra">Otras</ToggleButton>
             </ToggleButtonGroup>
-
             <Tooltip title="Refrescar">
-              <span>
-                <IconButton onClick={fetchDatos} sx={{ color: '#fff' }}>
-                  <CachedIcon />
-                </IconButton>
-              </span>
+              <span><IconButton onClick={fetchDatos} sx={{ color: '#fff' }}><CachedIcon /></IconButton></span>
             </Tooltip>
           </Stack>
         </Box>
 
         <Box px={3}>
-
           {/* Tarjetas */}
           {loading ? (
             <Grid container spacing={3}>
@@ -304,7 +205,6 @@ const VisualizacionGraficas = () => {
             </Grid>
           ) : (
             <Grid container spacing={3}>
-              {/* Con suscripción (desde vw_panel_ultimas_suscripciones) */}
               {tarjetasConSub.map((sub) => {
                 const empresaId = sub?.empresa_id;
                 const empresaNombre = sub?.empresa_nombre || 'Sin Empresa';
@@ -317,34 +217,19 @@ const VisualizacionGraficas = () => {
                       elevation={6}
                       sx={{
                         cursor: 'pointer',
-                        p: 2.5,
-                        borderRadius: 3,
-                        bgcolor: '#0f172a',
-                        color: '#e6e9ef',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        position: 'relative',
-                        overflow: 'hidden',
+                        p: 2.5, borderRadius: 3, bgcolor: '#0f172a', color: '#e6e9ef',
+                        border: '1px solid rgba(255,255,255,0.08)', position: 'relative', overflow: 'hidden',
                         transition: 'transform .18s, box-shadow .18s',
                         '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 14px 40px rgba(0,0,0,.25)' },
-                        '&::before': {
-                          content: '""',
-                          position: 'absolute',
-                          inset: 0,
-                          height: 6,
-                          bgcolor: sc.bar,
-                        },
+                        '&::before': { content: '""', position: 'absolute', inset: 0, height: 6, bgcolor: sc.bar },
                       }}
                     >
                       <Stack alignItems="center" spacing={1} mt={0.5}>
                         {getStatusIcon(estadoStr)}
-                        <Typography variant="h6" sx={{ color: '#fff' }}>
-                          {empresaNombre}
-                        </Typography>
+                        <Typography variant="h6" sx={{ color: '#fff' }}>{empresaNombre}</Typography>
                         <Chip label={estadoStr} color={sc.chip} size="small" sx={{ fontWeight: 700 }} />
                       </Stack>
-
                       <Divider sx={{ my: 2, borderColor: 'rgba(255,255,255,0.12)' }} />
-
                       <Stack spacing={0.5}>
                         <Typography variant="body2" sx={{ color: '#cdd7f5' }}>
                           <BusinessIcon fontSize="inherit" sx={{ verticalAlign: 'middle', mr: 1 }} />
@@ -364,7 +249,6 @@ const VisualizacionGraficas = () => {
                 );
               })}
 
-              {/* Sin suscripción */}
               {tarjetasSinSub.map((empresa, idx) => (
                 <Grid item xs={12} sm={6} md={4} key={`no-sub-${empresa.id ?? empresa.empresa_id ?? idx}`}>
                   <Paper
@@ -372,32 +256,19 @@ const VisualizacionGraficas = () => {
                     elevation={4}
                     sx={{
                       cursor: 'pointer',
-                      p: 2.5,
-                      borderRadius: 3,
-                      bgcolor: '#111a2b',
-                      color: '#e6e9ef',
+                      p: 2.5, borderRadius: 3, bgcolor: '#111a2b', color: '#e6e9ef',
                       border: '1px solid rgba(255,255,255,0.06)',
                       transition: 'transform .18s, box-shadow .18s',
                       '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 14px 40px rgba(0,0,0,.25)' },
-                      '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        inset: 0,
-                        height: 6,
-                        bgcolor: '#90A4AE',
-                      },
+                      '&::before': { content: '""', position: 'absolute', inset: 0, height: 6, bgcolor: '#90A4AE' },
                     }}
                   >
                     <Stack alignItems="center" spacing={1} mt={0.5}>
                       <HighlightOffIcon sx={{ color: '#90A4AE' }} fontSize="large" />
-                      <Typography variant="h6" sx={{ color: '#fff' }}>
-                        {empresa.nombre}
-                      </Typography>
+                      <Typography variant="h6" sx={{ color: '#fff' }}>{empresa.nombre}</Typography>
                       <Chip label="Sin suscripción" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: '#fff' }} />
                     </Stack>
-
                     <Divider sx={{ my: 2, borderColor: 'rgba(255,255,255,0.12)' }} />
-
                     <Stack spacing={0.5}>
                       <Typography variant="body2" sx={{ color: '#cdd7f5' }}>
                         <BusinessIcon fontSize="inherit" sx={{ verticalAlign: 'middle', mr: 1 }} />
@@ -421,54 +292,22 @@ const VisualizacionGraficas = () => {
             </Grid>
           )}
 
-          {/* Gráfica mensual general (totales) */}
-          <Paper
-            elevation={0}
-            sx={{
-              mt: 6,
-              p: 3,
-              borderRadius: 3,
-              bgcolor: '#0f172a',
-              color: '#e6e9ef',
-              border: '1px solid rgba(255,255,255,0.08)',
-            }}
-          >
+          {/* Gráfica mensual general */}
+          <Paper elevation={0} sx={{ mt: 6, p: 3, borderRadius: 3, bgcolor: '#0f172a', color: '#e6e9ef', border: '1px solid rgba(255,255,255,0.08)' }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-              <Typography variant="h6" sx={{ color: '#fff' }}>
-                Totales mensuales de suscripciones e ingresos
-              </Typography>
+              <Typography variant="h6" sx={{ color: '#fff' }}>Totales mensuales de suscripciones e ingresos</Typography>
               <TimelineIcon sx={{ color: '#9bb6ff' }} />
             </Stack>
-
             <Box sx={{ width: '100%', height: 420 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={dataGraficaGeneral}>
+                <LineChart data={mensuales.map(r => ({ mes: `${r.anio}-${pad2(r.mes)}`, TotalSuscripciones: Number(r.total_suscripciones || 0), TotalIngresos: Number(r.total_ingresos || 0) }))}>
                   <CartesianGrid stroke="rgba(255,255,255,0.08)" />
                   <XAxis dataKey="mes" stroke="#cfd8ff" />
                   <YAxis allowDecimals={false} stroke="#cfd8ff" />
-                  <RTooltip
-                    contentStyle={{ background: '#111a2b', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
-                    labelStyle={{ color: '#9bb6ff' }}
-                  />
+                  <RTooltip contentStyle={{ background: '#111a2b', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }} labelStyle={{ color: '#9bb6ff' }} />
                   <Legend wrapperStyle={{ color: '#e6e9ef' }} />
-                  <Line
-                    type="monotone"
-                    dataKey="TotalSuscripciones"
-                    stroke={LINE_COLORS[0]}
-                    strokeWidth={2}
-                    dot={{ r: 2.5 }}
-                    activeDot={{ r: 5 }}
-                    name="Total Suscripciones"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="TotalIngresos"
-                    stroke={LINE_COLORS[1]}
-                    strokeWidth={2}
-                    dot={{ r: 2.5 }}
-                    activeDot={{ r: 5 }}
-                    name="Total Ingresos"
-                  />
+                  <Line type="monotone" dataKey="TotalSuscripciones" stroke={LINE_COLORS[0]} strokeWidth={2} dot={{ r: 2.5 }} activeDot={{ r: 5 }} name="Total Suscripciones" />
+                  <Line type="monotone" dataKey="TotalIngresos" stroke={LINE_COLORS[1]} strokeWidth={2} dot={{ r: 2.5 }} activeDot={{ r: 5 }} name="Total Ingresos" />
                 </LineChart>
               </ResponsiveContainer>
             </Box>
@@ -476,47 +315,43 @@ const VisualizacionGraficas = () => {
 
           {/* Gráfica individual por empresa */}
           {empresaSeleccionada && (
-            <Paper
-              elevation={0}
-              sx={{
-                mt: 6,
-                p: 3,
-                borderRadius: 3,
-                bgcolor: '#0f172a',
-                color: '#e6e9ef',
-                border: '1px solid rgba(255,255,255,0.08)',
-              }}
-            >
+            <Paper elevation={0} sx={{ mt: 6, p: 3, borderRadius: 3, bgcolor: '#0f172a', color: '#e6e9ef', border: '1px solid rgba(255,255,255,0.08)' }}>
               <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-                <Typography variant="h6" sx={{ color: '#fff' }}>
-                  Historial mensual — {empresaSeleccionada.nombre}
-                </Typography>
+                <Typography variant="h6" sx={{ color: '#fff' }}>Historial mensual — {empresaSeleccionada.nombre}</Typography>
                 <Tooltip title="Haz clic en otra tarjeta para cambiar la empresa">
                   <Chip size="small" label="Seleccionada" sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: '#fff' }} />
                 </Tooltip>
               </Stack>
-
-              {dataEmpresaIndividual.length > 0 ? (
-                <Box sx={{ width: '100%', height: 340 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={dataEmpresaIndividual}>
-                      <CartesianGrid stroke="rgba(255,255,255,0.08)" />
-                      <XAxis dataKey="mes" stroke="#cfd8ff" />
-                      <YAxis allowDecimals={false} stroke="#cfd8ff" />
-                      <RTooltip
-                        contentStyle={{ background: '#111a2b', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
-                        labelStyle={{ color: '#9bb6ff' }}
-                      />
-                      <Legend wrapperStyle={{ color: '#e6e9ef' }} />
-                      <Line type="monotone" dataKey="Total" stroke="#4FC3F7" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </Box>
-              ) : (
-                <Typography variant="body2" color="#b7c2d9">
-                  Esta empresa aún no tiene suscripciones registradas.
-                </Typography>
-              )}
+              {(() => {
+                const data = (() => {
+                  const map = new Map();
+                  for (const s of historico) {
+                    const eid = s.empresa_id ?? s?.empresa?.id;
+                    if (eid !== empresaSeleccionada.id) continue;
+                    const dt = new Date(s.fecha_inicio);
+                    if (isNaN(dt.getTime())) continue;
+                    const key = `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}`;
+                    map.set(key, (map.get(key) || 0) + 1);
+                  }
+                  return Array.from(map.entries()).sort(([a], [b]) => (a < b ? -1 : 1)).map(([mes, Total]) => ({ mes, Total }));
+                })();
+                return data.length > 0 ? (
+                  <Box sx={{ width: '100%', height: 340 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={data}>
+                        <CartesianGrid stroke="rgba(255,255,255,0.08)" />
+                        <XAxis dataKey="mes" stroke="#cfd8ff" />
+                        <YAxis allowDecimals={false} stroke="#cfd8ff" />
+                        <RTooltip contentStyle={{ background: '#111a2b', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }} labelStyle={{ color: '#9bb6ff' }} />
+                        <Legend wrapperStyle={{ color: '#e6e9ef' }} />
+                        <Line type="monotone" dataKey="Total" stroke="#4FC3F7" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="#b7c2d9">Esta empresa aún no tiene suscripciones registradas.</Typography>
+                );
+              })()}
             </Paper>
           )}
 
