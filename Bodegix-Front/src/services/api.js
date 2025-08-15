@@ -1,32 +1,42 @@
 // src/services/api.js
 import axios from 'axios';
 
-const PROD_HOST = 'https://backend-bodegix.onrender.com';
-const isProd =
-  typeof window !== 'undefined' &&
-  !/^(http:\/\/(localhost|127\.0\.0\.1)|chrome-extension:\/\/)/i.test(window.location.origin);
+const PROD_FALLBACK = 'https://backend-bodegix.onrender.com';
 
-// 1) Lee env; si no hay:
-//    - en prod: cae a tu backend público
-//    - en dev: cae a localhost
-const RAW =
-  process.env.REACT_APP_API_URL ||
-  (isProd ? PROD_HOST : 'http://localhost:5000');
+const isBrowser = typeof window !== 'undefined';
+const origin = isBrowser ? window.location.origin : '';
+const isLocalhost =
+  isBrowser && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
 
-// 2) Normaliza para terminar en /api
-const baseURL = RAW.endsWith('/api') ? RAW : `${RAW.replace(/\/+$/, '')}/api`;
+// 1) Prioriza la env; si no hay, cae a fallback según entorno
+let raw = (process.env.REACT_APP_API_URL || '').trim();
+if (!raw) raw = isLocalhost ? 'http://localhost:5000' : PROD_FALLBACK;
 
-// 3) Evita prod con localhost
-if (isProd && /localhost/i.test(baseURL)) {
-  throw new Error(`[API] baseURL inválido en producción: ${baseURL}`);
+// 2) Normaliza: quita slashes finales y asegura /api
+const normalized = raw.replace(/\/+$/, '');
+const baseURL = normalized.endsWith('/api') ? normalized : `${normalized}/api`;
+
+// 3) Guardia: en producción, evitar usar el mismo origen del front (devolvería HTML)
+if (!isLocalhost && isBrowser && baseURL.startsWith(origin)) {
+  // No lanzamos error para no romper la app, pero avisamos en consola
+  console.error(
+    `[API] Estás apuntando al mismo origen del front (${origin}). ` +
+    `Eso suele devolver HTML y romper JSON. Ajusta REACT_APP_API_URL al backend.`
+  );
 }
 
-const api = axios.create({ baseURL });
+// 4) Instancia de axios
+const api = axios.create({
+  baseURL,
+  // timeout: 15000, // opcional
+});
 
-// Adjunta token
+// 5) Token en headers
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  try {
+    const token = isBrowser ? localStorage.getItem('token') : null;
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  } catch (_) {}
   return config;
 });
 
