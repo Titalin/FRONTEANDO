@@ -27,7 +27,7 @@ import {
 import Sidebar from '../../components/Layout/Sidebar';
 import { jwtDecode } from 'jwt-decode';
 
-const API_URL = 'http://localhost:5000';
+const API_URL = '../..';
 
 // Paleta para mejor contraste con tu fondo oscuro existente
 const palette = {

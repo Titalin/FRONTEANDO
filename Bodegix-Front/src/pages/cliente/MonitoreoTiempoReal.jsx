@@ -27,7 +27,7 @@ import ScaleIcon from '@mui/icons-material/Scale';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_URL = process.env.REACT_APP_API_URL || '../..';
 
 /* ---------- helpers ---------- */
 const minutesSince = (iso) => {

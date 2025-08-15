@@ -25,7 +25,7 @@ import {
 import Sidebar from '../../components/Layout/Sidebar';
 import { jwtDecode } from 'jwt-decode';
 
-const API_URL = import.meta?.env?.VITE_API_URL || 'http://localhost:5000';
+const API_URL = import.meta?.env?.VITE_API_URL || '../..';
 
 /* ---------- pequeño contador animado sin librerías ---------- */
 const useCountUp = (value, duration = 600) => {

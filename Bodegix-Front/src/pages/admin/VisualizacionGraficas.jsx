@@ -71,7 +71,7 @@ const VisualizacionGraficas = () => {
   const [estado, setEstado] = useState('todas'); // todas | activa | inactiva | otra
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  const API = process.env.NEXT_PUBLIC_API_URL || ''; // ← base URL del backend (ej. http://localhost:5000)
+  const API = process.env.NEXT_PUBLIC_API_URL || ''; // ← base URL del backend (ej. ../..)
 
   const fetchJSON = async (url, headers) => {
     const res = await fetch(url, { headers });

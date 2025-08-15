@@ -25,7 +25,7 @@ import Sidebar from '../../components/Layout/Sidebar';
 import { jwtDecode } from 'jwt-decode';
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 
-const API = process.env.REACT_APP_API || 'http://localhost:5000/api';
+const API = process.env.REACT_APP_API || '../../api';
 const PAYPAL_CLIENT_ID = process.env.REACT_APP_PAYPAL_CLIENT_ID || '';
 
 /* ---------- Utils ---------- */
