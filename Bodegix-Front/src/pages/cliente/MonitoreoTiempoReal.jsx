@@ -76,7 +76,7 @@ export default function MonitoreoTiempoReal() {
 
   const fetchActivos = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/lockers`, {
+      const res = await fetch(`${API_URL}/lockers`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.status === 401) {
@@ -97,7 +97,7 @@ export default function MonitoreoTiempoReal() {
 
   const fetchLecturas = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/temperaturas/latest-all`);
+      const res = await fetch(`${API_URL}/temperaturas/latest-all`);
       const data = await res.json();
       setLecturas(Array.isArray(data) ? data : []);
       setLastRefreshed(new Date());

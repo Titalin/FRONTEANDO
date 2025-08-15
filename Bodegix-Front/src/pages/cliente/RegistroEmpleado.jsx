@@ -93,7 +93,7 @@ const RegistroEmpleado = () => {
   const fetchEmpleados = async (tk, empId) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/usuarios', {
+      const res = await fetch('/usuarios', {
         headers: { Authorization: `Bearer ${tk}` },
       });
       const data = await res.json();
@@ -134,7 +134,7 @@ const RegistroEmpleado = () => {
         empresa_id: empresaId,
       };
 
-      const url = empleadoSeleccionado ? `/api/usuarios/${empleadoSeleccionado.id}` : '/api/usuarios';
+      const url = empleadoSeleccionado ? `/usuarios/${empleadoSeleccionado.id}` : '/usuarios';
       const method = empleadoSeleccionado ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -183,7 +183,7 @@ const RegistroEmpleado = () => {
 
     try {
       // Verifica lockers asignados
-      const lockerRes = await fetch(`/api/lockers`, {
+      const lockerRes = await fetch(`/lockers`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const lockers = await lockerRes.json();
@@ -195,7 +195,7 @@ const RegistroEmpleado = () => {
         return;
       }
 
-      const res = await fetch(`/api/usuarios/${id}`, {
+      const res = await fetch(`/usuarios/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

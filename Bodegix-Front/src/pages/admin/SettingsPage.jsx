@@ -60,7 +60,7 @@ const SettingsPage = () => {
       if (!userId) return;
       setLoading(true);
       try {
-        const res = await fetch(`/api/usuarios/${userId}`, {
+        const res = await fetch(`/usuarios/${userId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error('No se pudo obtener usuario');
@@ -92,7 +92,7 @@ const SettingsPage = () => {
     setMessage(null);
     setError(null);
     try {
-      const res = await fetch(`/api/usuarios/${userId}`, {
+      const res = await fetch(`/usuarios/${userId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -62,7 +62,7 @@ const Reports = () => {
   const lineChartRef = useRef(null);
 
   const cargarTotales = () => {
-    fetch('../../api/reports/ingresos/totales')
+    fetch('../../reports/ingresos/totales')
       .then((res) => res.json())
       .then((data) => setIngresosTotales(Number(data.ingresos_totales) || 0))
       .catch(() => setIngresosTotales(0));
@@ -72,19 +72,19 @@ const Reports = () => {
     const inicio = fechaInicio.format('YYYY-MM-DD');
     const fin = fechaFin.format('YYYY-MM-DD');
 
-    fetch(`../../api/reports/ingresos/por-empresa?fecha_inicio=${inicio}&fecha_fin=${fin}`)
+    fetch(`../../reports/ingresos/por-empresa?fecha_inicio=${inicio}&fecha_fin=${fin}`)
       .then((res) => res.json())
       .then((data) => setIngresosPorEmpresa(Array.isArray(data) ? data : []))
       .catch(() => setIngresosPorEmpresa([]));
 
-    fetch(`../../api/reports/ingresos/totales-por-fecha?fecha_inicio=${inicio}&fecha_fin=${fin}`)
+    fetch(`../../reports/ingresos/totales-por-fecha?fecha_inicio=${inicio}&fecha_fin=${fin}`)
       .then((res) => res.json())
       .then((data) => setIngresosTotales(Number(data.ingresos_totales) || 0))
       .catch(() => setIngresosTotales(0));
   };
 
   const cargarMensuales = () => {
-    fetch('../../api/reports/ingresos/mensuales')
+    fetch('../../reports/ingresos/mensuales')
       .then((res) => res.json())
       .then((data) => setIngresosMensuales(Array.isArray(data) ? data : []))
       .catch(() => setIngresosMensuales([]));

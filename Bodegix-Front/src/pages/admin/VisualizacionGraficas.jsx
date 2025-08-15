@@ -88,11 +88,11 @@ const VisualizacionGraficas = () => {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       const [emp, sin, ult, hist, men] = await Promise.all([
-        fetchJSON(`${API}/api/empresas`, headers),
-        fetchJSON(`${API}/api/empresas/sin-suscripcion`, headers),
-        fetchJSON(`${API}/api/suscripciones/ultimas`, headers),
-        fetchJSON(`${API}/api/suscripciones`, headers),
-        fetchJSON(`${API}/api/suscripciones/mensuales`, headers),
+        fetchJSON(`${API}/empresas`, headers),
+        fetchJSON(`${API}/empresas/sin-suscripcion`, headers),
+        fetchJSON(`${API}/suscripciones/ultimas`, headers),
+        fetchJSON(`${API}/suscripciones`, headers),
+        fetchJSON(`${API}/suscripciones/mensuales`, headers),
       ]);
 
       setEmpresas(Array.isArray(emp) ? emp : []);
@@ -139,7 +139,7 @@ const VisualizacionGraficas = () => {
   }, [ultimas, termino, estado]);
 
   // Tarjetas sin suscripción (vista devuelve empresa_id, empresa_nombre)
-  // Enriquecemos con teléfono/dirección si están en /api/empresas
+  // Enriquecemos con teléfono/dirección si están en /empresas
   const tarjetasSinSub = useMemo(() => {
     if (!(estado === 'todas' || estado === 'inactiva' || estado === 'otra')) return [];
     const byId = new Map(empresas.map(e => [e.id, e]));

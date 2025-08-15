@@ -221,13 +221,13 @@ export default function DashboardCliente() {
     setLoading(true);
     setError('');
     try {
-      const lockersData = await fetchJSON(`${API_URL}/api/lockers/empresa/${empresaId}`, {
+      const lockersData = await fetchJSON(`${API_URL}/lockers/empresa/${empresaId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setLockers(Array.isArray(lockersData) ? lockersData : []);
 
       const empleadosData = await fetchJSON(
-        `${API_URL}/api/usuarios?rol_id=3&empresa_id=${empresaId}`,
+        `${API_URL}/usuarios?rol_id=3&empresa_id=${empresaId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const emps = (Array.isArray(empleadosData) ? empleadosData : []).filter(

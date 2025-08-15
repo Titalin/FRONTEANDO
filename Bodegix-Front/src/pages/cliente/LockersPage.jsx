@@ -68,7 +68,7 @@ const LockersPage = () => {
 
   const fetchLockers = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/lockers`, {
+      const res = await fetch(`${API_URL}/lockers`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -81,7 +81,7 @@ const LockersPage = () => {
 
   const fetchEmpleados = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/usuarios?rol_id=3`, {
+      const res = await fetch(`${API_URL}/usuarios?rol_id=3`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -108,7 +108,7 @@ const LockersPage = () => {
 
   const handleUpdateLocker = async (lockerId, values) => {
     try {
-      const res = await fetch(`${API_URL}/api/lockers/${lockerId}`, {
+      const res = await fetch(`${API_URL}/lockers/${lockerId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

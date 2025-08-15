@@ -47,9 +47,9 @@ const DashboardAdmin = () => {
       try {
         setLoading(true);
         const endpoints = [
-          { url: '../../api/usuarios/admin', key: 'usuarios' },
-          { url: '../../api/lockers', key: 'lockers' },
-          { url: '../../api/suscripciones', key: 'suscripciones' },
+          { url: '../../usuarios/admin', key: 'usuarios' },
+          { url: '../../lockers', key: 'lockers' },
+          { url: '../../suscripciones', key: 'suscripciones' },
         ];
 
         const results = {};

@@ -21,7 +21,7 @@ const UsersPage = () => {
         const fetchUsers = async () => {
             const token = localStorage.getItem('token');
             try {
-                const res = await fetch('/api/usuarios', {
+                const res = await fetch('/usuarios', {
                     headers: { 'Authorization': `Bearer ${token}` },
                 });
                 const data = await res.json();
