@@ -17,6 +17,7 @@ import {
 } from '@mui/icons-material';
 import Sidebar from '../../components/Layout/Sidebar';
 import { jwtDecode } from 'jwt-decode';
+import api from '../../services/api';
 
 const DashboardAdmin = () => {
   const [stats, setStats] = useState({
@@ -46,35 +47,26 @@ const DashboardAdmin = () => {
 
       try {
         setLoading(true);
-        const endpoints = [
-          { url: '../../usuarios/admin', key: 'usuarios' },
-          { url: '../../lockers', key: 'lockers' },
-          { url: '../../suscripciones', key: 'suscripciones' },
-        ];
 
-        const results = {};
-        for (const endpoint of endpoints) {
-          const res = await fetch(endpoint.url, {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          });
+        // Usa axios preconfigurado (baseURL + /api + Authorization)
+        const [uRes, lRes, sRes] = await Promise.all([
+          api.get('/usuarios/admin'),
+          api.get('/lockers'),
+          api.get('/suscripciones'),
+        ]);
 
-          const text = await res.text();
-          if (!res.ok) {
-            throw new Error(`Error en ${endpoint.url}: Status ${res.status}`);
-          }
+        // Soporta respuesta como array directo o envuelta en {data:[]}
+        const usuariosArr = Array.isArray(uRes.data) ? uRes.data : (uRes.data?.data ?? []);
+        const lockersArr = Array.isArray(lRes.data) ? lRes.data : (lRes.data?.data ?? []);
+        const susArr = Array.isArray(sRes.data) ? sRes.data : (sRes.data?.data ?? []);
 
-          const data = JSON.parse(text);
-          if (endpoint.key === 'suscripciones') {
-            results[endpoint.key] = (Array.isArray(data) ? data : []).filter((s) => s.estado === 'activa').length;
-          } else {
-            results[endpoint.key] = (Array.isArray(data) ? data : []).length;
-          }
-        }
+        const activas = susArr.filter((s) => String(s?.estado || '').toLowerCase() === 'activa').length;
 
-        setStats(results);
+        setStats({
+          usuarios: usuariosArr.length,
+          lockers: lockersArr.length,
+          suscripciones: activas,
+        });
         setError('');
       } catch (err) {
         console.error('[DashboardAdmin] Error al cargar estadísticas:', err);
@@ -115,9 +107,7 @@ const DashboardAdmin = () => {
     <Box
       display="flex"
       minHeight="100vh"
-      sx={{
-        background: 'linear-gradient(120deg, #1a2540 70%, #232E4F 100%)',
-      }}
+      sx={{ background: 'linear-gradient(120deg, #1a2540 70%, #232E4F 100%)' }}
     >
       <Sidebar />
       <Box flexGrow={1} p={0} sx={{ minHeight: '100vh' }}>
@@ -144,7 +134,6 @@ const DashboardAdmin = () => {
           </Typography>
         </Box>
 
-        {/* Error */}
         {!!error && (
           <Box px={3} mb={2}>
             <Alert severity="error" variant="filled">
@@ -196,7 +185,7 @@ const DashboardAdmin = () => {
                       },
                     }}
                   >
-                    {/* Anillo/halo para el ícono */}
+                    {/* halo */}
                     <Box
                       sx={{
                         position: 'absolute',
@@ -233,7 +222,6 @@ const DashboardAdmin = () => {
                       {stat.title}
                     </Typography>
 
-                    {/* Línea decorativa inferior */}
                     <Stack
                       direction="row"
                       spacing={1}

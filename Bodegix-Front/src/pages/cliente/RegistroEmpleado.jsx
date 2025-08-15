@@ -1,34 +1,11 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Box,
-  Grid,
-  Paper,
-  Card,
-  CardContent,
-  Typography,
-  TextField,
-  Button,
-  Stack,
-  Alert,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton,
-  InputAdornment,
-  Tooltip,
+  Box, Grid, Typography, Paper, Card, CardContent, TextField, Button, Stack,
+  Alert, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip,
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, InputAdornment, Tooltip
 } from '@mui/material';
 import Sidebar from '../../components/Layout/Sidebar';
 import { jwtDecode } from 'jwt-decode';
-
-// Icons
 import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
 import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
@@ -39,6 +16,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import GroupIcon from '@mui/icons-material/Group';
 import SaveIcon from '@mui/icons-material/Save';
 import ClearIcon from '@mui/icons-material/Clear';
+import api from '../../services/api';
 
 const RegistroEmpleado = () => {
   const [formData, setFormData] = useState({ nombre: '', correo: '', contraseña: '' });
@@ -51,19 +29,14 @@ const RegistroEmpleado = () => {
   const [token, setToken] = useState('');
   const [empresaId, setEmpresaId] = useState(null);
 
-  // UI/UX extra
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
-  // Modal bloqueo por lockers asignados
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMessage, setDialogMessage] = useState('');
-
-  // Modal confirmación de eliminación
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [empleadoParaEliminar, setEmpleadoParaEliminar] = useState(null);
 
-  // === Estilos reutilizables para inputs en tema oscuro ===
   const inputStyles = {
     input: { color: '#E9EEF7' },
     '& .MuiInputLabel-root': { color: 'rgba(233,238,247,0.70)' },
@@ -73,8 +46,10 @@ const RegistroEmpleado = () => {
       '&:hover fieldset': { borderColor: '#A7C7FF' },
       '&.Mui-focused fieldset': { borderColor: '#7FB0FF', boxShadow: '0 0 0 2px rgba(127,176,255,0.25)' },
     },
-    '& .MuiSvgIcon-root': { color: '#A7C7FF' }, // color de íconos (adornment)
+    '& .MuiSvgIcon-root': { color: '#A7C7FF' },
   };
+
+  const arr = (v) => (Array.isArray(v) ? v : v?.data ?? []);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
@@ -83,21 +58,18 @@ const RegistroEmpleado = () => {
         const decoded = jwtDecode(storedToken);
         setEmpresaId(Number(decoded.empresa_id));
         setToken(storedToken);
-        fetchEmpleados(storedToken, Number(decoded.empresa_id));
+        fetchEmpleados(Number(decoded.empresa_id));
       } catch {
         setError('Sesión inválida. Inicia sesión nuevamente.');
       }
     }
   }, []);
 
-  const fetchEmpleados = async (tk, empId) => {
+  const fetchEmpleados = async (empId) => {
     try {
       setLoading(true);
-      const res = await fetch('/usuarios', {
-        headers: { Authorization: `Bearer ${tk}` },
-      });
-      const data = await res.json();
-      const empleadosEmpresa = (Array.isArray(data) ? data : []).filter(
+      const { data } = await api.get('/usuarios', { params: { empresa_id: empId, rol_id: 3 } });
+      const empleadosEmpresa = arr(data).filter(
         (emp) => Number(emp.rol_id) === 3 && Number(emp.empresa_id) === Number(empId)
       );
       setEmpleados(empleadosEmpresa);
@@ -126,51 +98,30 @@ const RegistroEmpleado = () => {
         return;
       }
 
-      const body = {
-        nombre: formData.nombre,
-        correo: formData.correo,
-        contraseña: formData.contraseña,
-        rol_id: 3,
-        empresa_id: empresaId,
-      };
-
-      const url = empleadoSeleccionado ? `/usuarios/${empleadoSeleccionado.id}` : '/usuarios';
-      const method = empleadoSeleccionado ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      const maybeJson = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(maybeJson?.error || 'Error al guardar empleado');
+      const body = { nombre: formData.nombre, correo: formData.correo, contraseña: formData.contraseña, rol_id: 3, empresa_id: empresaId };
+      if (empleadoSeleccionado) {
+        const { data } = await api.put(`/usuarios/${empleadoSeleccionado.id}`, body);
+        if (data?.error) throw new Error(data.error);
+        setSuccess('Empleado actualizado.');
+      } else {
+        const { data } = await api.post('/usuarios', body);
+        if (data?.error) throw new Error(data.error);
+        setSuccess('Empleado registrado.');
       }
 
-      setSuccess(empleadoSeleccionado ? 'Empleado actualizado.' : 'Empleado registrado.');
       setFormData({ nombre: '', correo: '', contraseña: '' });
       setEmpleadoSeleccionado(null);
-      fetchEmpleados(token, empresaId);
+      fetchEmpleados(empresaId);
     } catch (err) {
-      setError(err.message || 'Error al guardar empleado.');
+      setError(err?.response?.data?.message || err.message || 'Error al guardar empleado.');
     }
   };
 
   const handleEditar = (empleado) => {
     setEmpleadoSeleccionado(empleado);
-    setFormData({
-      nombre: empleado.nombre,
-      correo: empleado.correo,
-      contraseña: '',
-    });
+    setFormData({ nombre: empleado.nombre, correo: empleado.correo, contraseña: '' });
   };
 
-  // Abre confirmación, y luego valida lockers
   const solicitarEliminar = (emp) => {
     setEmpleadoParaEliminar(emp);
     setConfirmOpen(true);
@@ -182,30 +133,21 @@ const RegistroEmpleado = () => {
     if (!id) return;
 
     try {
-      // Verifica lockers asignados
-      const lockerRes = await fetch(`/lockers`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const lockers = await lockerRes.json();
-      const asignados = (Array.isArray(lockers) ? lockers : []).filter((l) => Number(l.usuario_id) === Number(id));
-
+      const { data: lockersData } = await api.get('/lockers');
+      const asignados = arr(lockersData).filter((l) => Number(l.usuario_id) === Number(id));
       if (asignados.length > 0) {
         setDialogMessage('No puedes eliminar este empleado porque tiene lockers asignados.');
         setDialogOpen(true);
         return;
       }
+      const resp = await api.delete(`/usuarios/${id}`);
+      if (resp?.data?.error) throw new Error(resp.data.error);
 
-      const res = await fetch(`/usuarios/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) throw new Error('Error al eliminar empleado');
       setSuccess('Empleado eliminado correctamente.');
-      fetchEmpleados(token, empresaId);
+      fetchEmpleados(empresaId);
     } catch (err) {
       console.error(err);
-      setError('No se pudo eliminar el empleado.');
+      setError(err?.response?.data?.message || 'No se pudo eliminar el empleado.');
     } finally {
       setEmpleadoParaEliminar(null);
     }
@@ -215,152 +157,62 @@ const RegistroEmpleado = () => {
     const q = busqueda.trim().toLowerCase();
     if (!q) return empleados;
     return empleados.filter(
-      (e) =>
-        String(e.nombre || '').toLowerCase().includes(q) ||
-        String(e.correo || '').toLowerCase().includes(q)
+      (e) => String(e.nombre || '').toLowerCase().includes(q) || String(e.correo || '').toLowerCase().includes(q)
     );
   }, [empleados, busqueda]);
 
   return (
     <Box display="flex">
       <Sidebar />
-
       <Box flexGrow={1} p={3} sx={{ color: '#e6e9ef' }}>
-        {/* Hero / Encabezado */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: 3,
-            mb: 3,
-            borderRadius: 3,
-            background: 'linear-gradient(135deg, #bd6739ff, #2a5298)',
-            color: '#fff',
-          }}
-        >
+        <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 3, background: 'linear-gradient(135deg, #bd6739ff, #2a5298)', color: '#fff' }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
             <Box>
-              <Typography variant="h5" fontWeight={800} gutterBottom>
-                Registrar Empleados
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                Crea y administra a los trabajadores de tu empresa (rol 3).
-              </Typography>
+              <Typography variant="h5" fontWeight={800} gutterBottom>Registrar Empleados</Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>Crea y administra a los trabajadores de tu empresa (rol 3).</Typography>
             </Box>
-
-            <Chip
-              icon={<GroupIcon sx={{ color: '#fff !important' }} />}
-              label={`${empleados.length} empleados`}
-              sx={{
-                bgcolor: 'rgba(255,255,255,0.15)',
-                color: '#fff',
-                fontWeight: 700,
-              }}
-            />
+            <Chip icon={<GroupIcon sx={{ color: '#fff !important' }} />} label={`${empleados.length} empleados`} sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: '#fff', fontWeight: 700 }} />
           </Stack>
         </Paper>
 
-        {/* Formulario */}
-        <Card
-          elevation={6}
-          sx={{
-            mb: 4,
-            borderRadius: 3,
-            backgroundColor: '#111a2b',
-            border: '1px solid rgba(255,255,255,0.06)',
-          }}
-        >
+        <Card elevation={6} sx={{ mb: 4, borderRadius: 3, backgroundColor: '#111a2b', border: '1px solid rgba(255,255,255,0.06)' }}>
           <CardContent>
-            <Typography variant="h6" sx={{ mb: 1.5, color: '#fff' }}>
-              {empleadoSeleccionado ? 'Editar empleado' : 'Nuevo empleado'}
-            </Typography>
-
+            <Typography variant="h6" sx={{ mb: 1.5, color: '#fff' }}>{empleadoSeleccionado ? 'Editar empleado' : 'Nuevo empleado'}</Typography>
             {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
             <Box component="form" onSubmit={handleSubmit} noValidate>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={4}>
-                  <TextField
-                    label="Nombre"
-                    name="nombre"
-                    value={formData.nombre}
-                    onChange={handleChange}
-                    fullWidth
-                    required
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <PersonAddAlt1Icon sx={{ color: '#A7C7FF' }} />
-                        </InputAdornment>
-                      ),
-                    }}
+                  <TextField label="Nombre" name="nombre" value={formData.nombre} onChange={handleChange} fullWidth required
+                    InputProps={{ startAdornment: (<InputAdornment position="start"><PersonAddAlt1Icon sx={{ color: '#A7C7FF' }} /></InputAdornment>) }}
                     sx={inputStyles}
                   />
                 </Grid>
                 <Grid item xs={12} md={4}>
-                  <TextField
-                    label="Correo electrónico"
-                    name="correo"
-                    type="email"
-                    value={formData.correo}
-                    onChange={handleChange}
-                    fullWidth
-                    required
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <EmailIcon sx={{ color: '#A7C7FF' }} />
-                        </InputAdornment>
-                      ),
-                    }}
+                  <TextField label="Correo electrónico" name="correo" type="email" value={formData.correo} onChange={handleChange} fullWidth required
+                    InputProps={{ startAdornment: (<InputAdornment position="start"><EmailIcon sx={{ color: '#A7C7FF' }} /></InputAdornment>) }}
                     sx={inputStyles}
                   />
                 </Grid>
                 <Grid item xs={12} md={4}>
-                  <TextField
-                    label="Contraseña"
-                    name="contraseña"
-                    type="password"
-                    value={formData.contraseña}
-                    onChange={handleChange}
-                    fullWidth
-                    required={!empleadoSeleccionado}
+                  <TextField label="Contraseña" name="contraseña" type="password" value={formData.contraseña} onChange={handleChange} fullWidth required={!empleadoSeleccionado}
                     placeholder={empleadoSeleccionado ? 'Deja vacío para no cambiar' : ''}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <LockIcon sx={{ color: '#A7C7FF' }} />
-                        </InputAdornment>
-                      ),
-                    }}
+                    InputProps={{ startAdornment: (<InputAdornment position="start"><LockIcon sx={{ color: '#A7C7FF' }} /></InputAdornment>) }}
                     sx={inputStyles}
                   />
                 </Grid>
 
                 <Grid item xs={12} md="auto">
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    color="primary"
-                    startIcon={<SaveIcon />}
-                    sx={{ height: '100%' }}
-                  >
+                  <Button type="submit" variant="contained" color="primary" startIcon={<SaveIcon />} sx={{ height: '100%' }}>
                     {empleadoSeleccionado ? 'Actualizar' : 'Registrar'}
                   </Button>
                 </Grid>
 
                 {empleadoSeleccionado && (
                   <Grid item xs={12} md="auto">
-                    <Button
-                      variant="outlined"
-                      color="inherit"
-                      startIcon={<ClearIcon />}
-                      sx={{ height: '100%' }}
-                      onClick={() => {
-                        setEmpleadoSeleccionado(null);
-                        setFormData({ nombre: '', correo: '', contraseña: '' });
-                      }}
-                    >
+                    <Button variant="outlined" color="inherit" startIcon={<ClearIcon />} sx={{ height: '100%' }}
+                      onClick={() => { setEmpleadoSeleccionado(null); setFormData({ nombre: '', correo: '', contraseña: '' }); }}>
                       Cancelar edición
                     </Button>
                   </Grid>
@@ -370,64 +222,22 @@ const RegistroEmpleado = () => {
           </CardContent>
         </Card>
 
-        {/* Tabla + barra de acciones */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            borderRadius: 3,
-            backgroundColor: '#0f172a',
-            border: '1px solid rgba(255,255,255,0.06)',
-          }}
-        >
+        <Paper elevation={0} sx={{ p: 2, borderRadius: 3, backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.06)' }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-            <Typography variant="h6" sx={{ color: '#fff' }}>
-              Empleados registrados
-            </Typography>
-
+            <Typography variant="h6" sx={{ color: '#fff' }}>Empleados registrados</Typography>
             <Stack direction="row" spacing={1}>
-              <TextField
-                size="small"
-                placeholder="Buscar por nombre o correo…"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon sx={{ color: '#A7C7FF' }} />
-                    </InputAdornment>
-                  ),
-                }}
+              <TextField size="small" placeholder="Buscar por nombre o correo…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
+                InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon sx={{ color: '#A7C7FF' }} /></InputAdornment>) }}
                 sx={{ minWidth: 280, ...inputStyles }}
               />
-
-              <Tooltip title="Refrescar">
-                <span>
-                  <IconButton
-                    onClick={() => token && empresaId && fetchEmpleados(token, empresaId)}
-                    disabled={loading}
-                    color="primary"
-                  >
-                    <RefreshIcon sx={{ color: '#A7C7FF' }} />
-                  </IconButton>
-                </span>
-              </Tooltip>
+              <Tooltip title="Refrescar"><span><IconButton onClick={() => empresaId && fetchEmpleados(empresaId)} disabled={loading} color="primary"><RefreshIcon sx={{ color: '#A7C7FF' }} /></IconButton></span></Tooltip>
             </Stack>
           </Stack>
 
           <TableContainer sx={{ borderRadius: 2, maxHeight: 520 }}>
             <Table stickyHeader size="small">
               <TableHead>
-                <TableRow
-                  sx={{
-                    '& th': {
-                      bgcolor: '#13203b',
-                      color: '#dfe6f5',
-                      fontWeight: 700,
-                      borderBottom: '1px solid rgba(255,255,255,0.08)',
-                    },
-                  }}
-                >
+                <TableRow sx={{ '& th': { bgcolor: '#13203b', color: '#dfe6f5', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.08)' } }}>
                   <TableCell>Nombre</TableCell>
                   <TableCell>Correo</TableCell>
                   <TableCell>Empresa</TableCell>
@@ -437,22 +247,10 @@ const RegistroEmpleado = () => {
 
               <TableBody>
                 {empleadosFiltrados.map((emp, idx) => (
-                  <TableRow
-                    key={emp.id}
-                    hover
-                    sx={{
-                      bgcolor: idx % 2 ? 'rgba(255,255,255,0.02)' : 'transparent',
-                      '& td': { borderColor: 'rgba(255,255,255,0.05)', color: '#E9EEF7' },
-                    }}
-                  >
+                  <TableRow key={emp.id} hover sx={{ bgcolor: idx % 2 ? 'rgba(255,255,255,0.02)' : 'transparent', '& td': { borderColor: 'rgba(255,255,255,0.05)', color: '#E9EEF7' } }}>
                     <TableCell>
                       <Stack direction="row" spacing={1} alignItems="center">
-                        <Chip
-                          size="small"
-                          label={`#${emp.id}`}
-                          variant="outlined"
-                          sx={{ color: '#9bb6ff', borderColor: '#274690' }}
-                        />
+                        <Chip size="small" label={`#${emp.id}`} variant="outlined" sx={{ color: '#9bb6ff', borderColor: '#274690' }} />
                         <Typography>{emp.nombre}</Typography>
                       </Stack>
                     </TableCell>
@@ -460,24 +258,8 @@ const RegistroEmpleado = () => {
                     <TableCell>{emp?.empresa?.nombre || 'N/A'}</TableCell>
                     <TableCell>
                       <Stack direction="row" spacing={1}>
-                        <Button
-                          size="small"
-                          variant="contained"
-                          color="info"
-                          startIcon={<EditIcon />}
-                          onClick={() => handleEditar(emp)}
-                        >
-                          Editar
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="error"
-                          startIcon={<DeleteIcon />}
-                          onClick={() => solicitarEliminar(emp)}
-                        >
-                          Eliminar
-                        </Button>
+                        <Button size="small" variant="contained" color="info" startIcon={<EditIcon />} onClick={() => handleEditar(emp)}>Editar</Button>
+                        <Button size="small" variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => solicitarEliminar(emp)}>Eliminar</Button>
                       </Stack>
                     </TableCell>
                   </TableRow>
@@ -495,34 +277,18 @@ const RegistroEmpleado = () => {
           </TableContainer>
         </Paper>
 
-        {/* Modal: acción no permitida */}
         <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
           <DialogTitle>Acción no permitida</DialogTitle>
-          <DialogContent>
-            <Typography>{dialogMessage}</Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDialogOpen(false)} color="primary">
-              Cerrar
-            </Button>
-          </DialogActions>
+          <DialogContent><Typography>{dialogMessage}</Typography></DialogContent>
+          <DialogActions><Button onClick={() => setDialogOpen(false)} color="primary">Cerrar</Button></DialogActions>
         </Dialog>
 
-        {/* Modal: confirmar eliminación */}
         <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
           <DialogTitle>Confirmar eliminación</DialogTitle>
-          <DialogContent>
-            <Typography>
-              ¿Seguro que deseas eliminar a <b>{empleadoParaEliminar?.nombre}</b>? Esta acción no se puede deshacer.
-            </Typography>
-          </DialogContent>
+          <DialogContent><Typography>¿Seguro que deseas eliminar a <b>{empleadoParaEliminar?.nombre}</b>? Esta acción no se puede deshacer.</Typography></DialogContent>
           <DialogActions>
-            <Button onClick={() => setConfirmOpen(false)} color="inherit">
-              Cancelar
-            </Button>
-            <Button color="error" variant="contained" startIcon={<DeleteIcon />} onClick={handleEliminarConfirmado}>
-              Eliminar
-            </Button>
+            <Button onClick={() => setConfirmOpen(false)} color="inherit">Cancelar</Button>
+            <Button color="error" variant="contained" startIcon={<DeleteIcon />} onClick={handleEliminarConfirmado}>Eliminar</Button>
           </DialogActions>
         </Dialog>
       </Box>

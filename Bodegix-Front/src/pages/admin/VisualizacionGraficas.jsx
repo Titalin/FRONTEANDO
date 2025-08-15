@@ -1,3 +1,4 @@
+// src/pages/admin/VisualizacionGraficas.jsx
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Box, Typography, Paper, Grid, Chip, Divider, Stack, TextField, InputAdornment,
@@ -36,7 +37,7 @@ const pad2 = (n) => String(n).padStart(2, '0');
 
 const VisualizacionGraficas = () => {
   const [empresas, setEmpresas] = useState([]);
-  const [sinSub, setSinSub] = useState([]);
+  const [sinSub, setSinSub] = useState([]);          // ahora lo calculamos
   const [ultimas, setUltimas] = useState([]);
   const [historico, setHistorico] = useState([]);
   const [mensuales, setMensuales] = useState([]);
@@ -49,21 +50,42 @@ const VisualizacionGraficas = () => {
   const fetchDatos = useCallback(async () => {
     try {
       setLoading(true);
-      const [emp, sin, ult, hist, men] = await Promise.all([
+      const [emp, ult, hist, men] = await Promise.all([
         api.get('/empresas'),
-        api.get('/empresas/sin-suscripcion'),
         api.get('/suscripciones/ultimas'),
         api.get('/suscripciones'),
         api.get('/suscripciones/mensuales'),
       ]);
-      setEmpresas(Array.isArray(emp.data) ? emp.data : []);
-      setSinSub(Array.isArray(sin.data) ? sin.data : []);
-      setUltimas(Array.isArray(ult.data) ? ult.data : []);
-      setHistorico(Array.isArray(hist.data) ? hist.data : []);
-      setMensuales(Array.isArray(men.data) ? men.data : []);
+
+      const empArr = Array.isArray(emp.data) ? emp.data : (emp.data?.data ?? []);
+      const ultArr = Array.isArray(ult.data) ? ult.data : (ult.data?.data ?? []);
+      const histArr = Array.isArray(hist.data) ? hist.data : (hist.data?.data ?? []);
+      const menArr = Array.isArray(men.data) ? men.data : (men.data?.data ?? []);
+
+      setEmpresas(empArr);
+      setUltimas(ultArr);
+      setHistorico(histArr);
+      setMensuales(menArr);
+
+      // --- Calcula "sin suscripción" en el front ---
+      // Consideramos "sin suscripción" = empresas sin ningún registro en historico
+      const empresasConHist = new Set(
+        histArr
+          .map(s => s?.empresa_id ?? s?.empresa?.id)
+          .filter(Boolean)
+      );
+      const sin = empArr
+        .filter(e => !empresasConHist.has(e.id))
+        .map(e => ({ id: e.id, nombre: e.nombre, telefono: e.telefono ?? null, direccion: e.direccion ?? null }));
+      setSinSub(sin);
     } catch (err) {
-      console.error('Error al obtener datos:', { status: err?.response?.status, body: err?.response?.data });
-      setEmpresas([]); setSinSub([]); setUltimas([]); setHistorico([]); setMensuales([]);
+      console.warn('Error al obtener datos (se muestran los disponibles):', { status: err?.response?.status, body: err?.response?.data });
+      // Si algo falla, deja lo que ya hay; pero si todo falla, resetea
+      setEmpresas((v) => Array.isArray(v) ? v : []);
+      setUltimas((v) => Array.isArray(v) ? v : []);
+      setHistorico((v) => Array.isArray(v) ? v : []);
+      setMensuales((v) => Array.isArray(v) ? v : []);
+      setSinSub((v) => Array.isArray(v) ? v : []);
     } finally {
       setLoading(false);
     }
@@ -96,14 +118,8 @@ const VisualizacionGraficas = () => {
 
   const tarjetasSinSub = useMemo(() => {
     if (!(estado === 'todas' || estado === 'inactiva' || estado === 'otra')) return [];
-    const byId = new Map(empresas.map(e => [e.id, e]));
-    return sinSub
-      .filter((s) => matchTexto(s?.empresa_nombre))
-      .map((s) => {
-        const extra = byId.get(s.empresa_id);
-        return { id: s.empresa_id, nombre: s.empresa_nombre, telefono: extra?.telefono || null, direccion: extra?.direccion || null };
-      });
-  }, [sinSub, empresas, termino, estado]);
+    return sinSub.filter((e) => matchTexto(e?.nombre));
+  }, [sinSub, termino, estado]);
 
   const handleEmpresaClick = (empresaId) => {
     const seleccionada = empresas.find((e) => e.id === empresaId);
@@ -211,7 +227,7 @@ const VisualizacionGraficas = () => {
                 const estadoStr = String(sub?.estado || '').toLowerCase();
                 const sc = statusColor(estadoStr);
                 return (
-                  <Grid item xs={12} sm={6} md={4} key={`sub-${sub.suscripcion_id}`}>
+                  <Grid item xs={12} sm={6} md={4} key={`sub-${sub.suscripcion_id ?? `${empresaId}-${estadoStr}`}`}>
                     <Paper
                       onClick={() => handleEmpresaClick(empresaId)}
                       elevation={6}
@@ -250,9 +266,9 @@ const VisualizacionGraficas = () => {
               })}
 
               {tarjetasSinSub.map((empresa, idx) => (
-                <Grid item xs={12} sm={6} md={4} key={`no-sub-${empresa.id ?? empresa.empresa_id ?? idx}`}>
+                <Grid item xs={12} sm={6} md={4} key={`no-sub-${empresa.id ?? idx}`}>
                   <Paper
-                    onClick={() => handleEmpresaClick(empresa.id ?? empresa.empresa_id)}
+                    onClick={() => handleEmpresaClick(empresa.id)}
                     elevation={4}
                     sx={{
                       cursor: 'pointer',
@@ -298,19 +314,23 @@ const VisualizacionGraficas = () => {
               <Typography variant="h6" sx={{ color: '#fff' }}>Totales mensuales de suscripciones e ingresos</Typography>
               <TimelineIcon sx={{ color: '#9bb6ff' }} />
             </Stack>
-            <Box sx={{ width: '100%', height: 420 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={mensuales.map(r => ({ mes: `${r.anio}-${pad2(r.mes)}`, TotalSuscripciones: Number(r.total_suscripciones || 0), TotalIngresos: Number(r.total_ingresos || 0) }))}>
-                  <CartesianGrid stroke="rgba(255,255,255,0.08)" />
-                  <XAxis dataKey="mes" stroke="#cfd8ff" />
-                  <YAxis allowDecimals={false} stroke="#cfd8ff" />
-                  <RTooltip contentStyle={{ background: '#111a2b', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }} labelStyle={{ color: '#9bb6ff' }} />
-                  <Legend wrapperStyle={{ color: '#e6e9ef' }} />
-                  <Line type="monotone" dataKey="TotalSuscripciones" stroke={LINE_COLORS[0]} strokeWidth={2} dot={{ r: 2.5 }} activeDot={{ r: 5 }} name="Total Suscripciones" />
-                  <Line type="monotone" dataKey="TotalIngresos" stroke={LINE_COLORS[1]} strokeWidth={2} dot={{ r: 2.5 }} activeDot={{ r: 5 }} name="Total Ingresos" />
-                </LineChart>
-              </ResponsiveContainer>
-            </Box>
+            {dataGraficaGeneral.length > 0 ? (
+              <Box sx={{ width: '100%', height: 420 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dataGraficaGeneral}>
+                    <CartesianGrid stroke="rgba(255,255,255,0.08)" />
+                    <XAxis dataKey="mes" stroke="#cfd8ff" />
+                    <YAxis allowDecimals={false} stroke="#cfd8ff" />
+                    <RTooltip contentStyle={{ background: '#111a2b', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }} labelStyle={{ color: '#9bb6ff' }} />
+                    <Legend wrapperStyle={{ color: '#e6e9ef' }} />
+                    <Line type="monotone" dataKey="TotalSuscripciones" stroke={LINE_COLORS[0]} strokeWidth={2} dot={{ r: 2.5 }} activeDot={{ r: 5 }} name="Total Suscripciones" />
+                    <Line type="monotone" dataKey="TotalIngresos" stroke={LINE_COLORS[1]} strokeWidth={2} dot={{ r: 2.5 }} activeDot={{ r: 5 }} name="Total Ingresos" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Box>
+            ) : (
+              <Typography variant="body2" color="#b7c2d9">No hay datos mensuales disponibles.</Typography>
+            )}
           </Paper>
 
           {/* Gráfica individual por empresa */}
@@ -322,36 +342,22 @@ const VisualizacionGraficas = () => {
                   <Chip size="small" label="Seleccionada" sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: '#fff' }} />
                 </Tooltip>
               </Stack>
-              {(() => {
-                const data = (() => {
-                  const map = new Map();
-                  for (const s of historico) {
-                    const eid = s.empresa_id ?? s?.empresa?.id;
-                    if (eid !== empresaSeleccionada.id) continue;
-                    const dt = new Date(s.fecha_inicio);
-                    if (isNaN(dt.getTime())) continue;
-                    const key = `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}`;
-                    map.set(key, (map.get(key) || 0) + 1);
-                  }
-                  return Array.from(map.entries()).sort(([a], [b]) => (a < b ? -1 : 1)).map(([mes, Total]) => ({ mes, Total }));
-                })();
-                return data.length > 0 ? (
-                  <Box sx={{ width: '100%', height: 340 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={data}>
-                        <CartesianGrid stroke="rgba(255,255,255,0.08)" />
-                        <XAxis dataKey="mes" stroke="#cfd8ff" />
-                        <YAxis allowDecimals={false} stroke="#cfd8ff" />
-                        <RTooltip contentStyle={{ background: '#111a2b', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }} labelStyle={{ color: '#9bb6ff' }} />
-                        <Legend wrapperStyle={{ color: '#e6e9ef' }} />
-                        <Line type="monotone" dataKey="Total" stroke="#4FC3F7" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </Box>
-                ) : (
-                  <Typography variant="body2" color="#b7c2d9">Esta empresa aún no tiene suscripciones registradas.</Typography>
-                );
-              })()}
+              {dataEmpresaIndividual.length > 0 ? (
+                <Box sx={{ width: '100%', height: 340 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={dataEmpresaIndividual}>
+                      <CartesianGrid stroke="rgba(255,255,255,0.08)" />
+                      <XAxis dataKey="mes" stroke="#cfd8ff" />
+                      <YAxis allowDecimals={false} stroke="#cfd8ff" />
+                      <RTooltip contentStyle={{ background: '#111a2b', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }} labelStyle={{ color: '#9bb6ff' }} />
+                      <Legend wrapperStyle={{ color: '#e6e9ef' }} />
+                      <Line type="monotone" dataKey="Total" stroke="#4FC3F7" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </Box>
+              ) : (
+                <Typography variant="body2" color="#b7c2d9">Esta empresa aún no tiene suscripciones registradas.</Typography>
+              )}
             </Paper>
           )}
 
